@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys,os,os.path,string,re,codecs
+import argparse
 from subprocess import *
 
 from pygments import highlight
@@ -1446,3 +1447,40 @@ def find_indent(line):
     while (ii<len(line)) and (line[ii]==' '):
         ii=ii+1
     return ii
+
+
+# ------------------ Run the program from the command line -------------
+
+# Parse the command line options
+parser = argparse.ArgumentParser(description='The mat2doc documentation generator.')
+parser.add_argument('target', choices=['mat','html','php','tex'],
+                    help='Output target')
+parser.add_argument('filename', help='File or directory to process', default='')
+
+parser.add_argument('-a', '--auto', help='Process changed files automatically')
+parser.add_argument('-q', '--quiet',
+                  action="store_false", dest='verbose', default=True,
+                  help="don't print status messages to stdout")
+
+args = parser.parse_args()
+
+
+
+# Locate the mat2doc configuration directory
+
+if os.path.isdir(args.filename) and os.path.isdir(args.filename+os.sep+'mat2doc'):
+    # Is the filename a directory directly containing mat2doc. 
+
+    print "Found directly in directory"
+
+
+else:
+    # Step 2: If not, step backwards to find it.
+    
+    print "Looking backwards"
+
+
+
+
+
+
