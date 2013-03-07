@@ -33,6 +33,38 @@ def myexec(s):
         for line in buf:
             print line
 
+# ----------------- extra path/dir manipulations ---------------------------
+
+# Create directory, and do not produce an error if it already exists
+def safe_mkdir(dir):
+    try:
+        os.makedirs(dir)
+    except OSError:
+        pass
+
+# rm -Rf
+# Does not remove the directory itself
+def rmrf(s):
+    for root, dirs, files in os.walk(s, topdown=False):
+        for name in files:
+            os.remove(os.path.join(root, name))
+        for name in dirs:
+            os.rmdir(os.path.join(root, name))
+
+# Find all the Contents.m files
+def find_indexfiles(projectdir):
+    indexfiles=[]
+    for root, dirs, files in os.walk(projectdir, topdown=False):
+        for name in files:
+            if name=='Contents.m':
+                s=os.path.relpath(os.path.join(root, name),projectdir)
+                # strip .m
+                s=s[:-2]
+                indexfiles.append(s)
+
+    return indexfiles
+
+# ------------------ safe reading and writing of text files ---------------
 def saferead(filename):
     f=codecs.open(filename,'r',encoding="utf-8")
     buf=unicode(f.read())
@@ -235,6 +267,7 @@ class PhpConf(ConfType):
     fext='.php'
     widthstr=''
     imagetype='png'
+    includedir='../include'
 
     # Use bibtex2html to generate html references
     def references(self,reflist,obuf,caller):
@@ -282,7 +315,7 @@ class BasePrinter(object):
 
 
         #f=codecs.open(self.c.g.root+fname+'.m',encoding="utf-8")
-        buf=safereadlines(self.c.g.root+fname+'.m')
+        buf=safereadlines(os.path.join(self.c.g.root,fname+'.m'))
         #f=file(self.c.g.root+fname+'.m')
         #buf=f.readlines()
         #f.close()
@@ -326,7 +359,7 @@ class BasePrinter(object):
         if len(self.subdir)>0:
             backdir='../'
 
-        includedir=backdir+self.c.t.includedir
+        includedir=os.path.join(backdir,self.c.t.includedir)
 
         phpvars = self.print_variables()
 
@@ -398,11 +431,11 @@ class ExecPrinter(BasePrinter):
         out['body'].append('')
 
         # Append the internal reference lookup for this project
-        out['body'].append('.. include:: '+self.c.g.root+'mat2doc/ref-internal.txt')
+        out['body'].append('.. include:: '+os.path.join(self.c.g.root,'mat2doc','ref-internal.txt'))
 
         # Append the lookups for other projects        
         for filename in self.c.g.otherrefs:
-            out['body'].append('.. include:: '+self.c.g.root+'mat2doc/'+filename)
+            out['body'].append('.. include:: '+os.path.join(self.c.g.root,'mat2doc',filename))
 
         out['body'].append('')
 
@@ -953,7 +986,7 @@ class ContentsPrinter(BasePrinter):
         maincontents=[]
 
         # Append the internal reference lookup for this project
-        maincontents.append('.. include:: '+self.c.g.root+'mat2doc/ref-internal.txt')
+        maincontents.append('.. include:: '+os.path.join(self.c.g.root,'mat2doc','ref-internal.txt'))
 
         maincontents.append(self.title)
         maincontents.append('='*len(self.title))
@@ -1072,7 +1105,7 @@ class ContentsPrinter(BasePrinter):
             self.writelines(os.path.join(self.subdir,'index.php'),buf)
             
             menu=self.print_menu()
-            self.writelines(self.subdir+'/contentsmenu'+self.c.t.fext,menu)
+            self.writelines(os.path.join(self.subdir,'contentsmenu'+self.c.t.fext),menu)
 
         if self.c.t.basetype=='tex':
             obuf=self.print_tex()
@@ -1432,10 +1465,7 @@ def print_matlab(conf,ifilename,ofilename):
 # depending on whether the first word of the first line is 'function'
 def matfile_factory(conf,fname):
     
-    buf=safereadlines(conf.g.root+fname+'.m')
-    #f=file(conf.g.root+fname+'.m')
-    #buf=f.readlines()
-    #f.close()
+    buf=safereadlines(os.path.join(conf.g.root,fname+'.m'))
 
     if buf[0].split()[0]=='function':
         return FunPrinter(conf,fname)
@@ -1447,6 +1477,154 @@ def find_indent(line):
     while (ii<len(line)) and (line[ii]==' '):
         ii=ii+1
     return ii
+
+def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
+
+    # Hardcoded for now
+    plotengine='matlab'
+
+    tmpdir=os.path.join(outputdir,projectname+'-tmp')
+    safe_mkdir(tmpdir)
+    
+    # Empty the tmp directory for safety
+    rmrf(tmpdir)
+
+    conffile=projectdir+'mat2doc/mat2docconf.py'
+
+    target=targetname
+
+    conf=ConfType()
+
+    # Global
+    # conf.g=globalconf
+    conf.g=ConfType()
+    conf.g.root=projectdir # old
+    conf.g.projectdir=projectdir # new
+    conf.g.outputdir=outputdir # new
+    conf.g.plotengine=plotengine
+    conf.g.tmpdir=tmpdir
+    conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
+
+    # Target
+    if target=='php':
+        conf.t=PhpConf()
+
+    if target=='tex':
+        conf.t=TexConf()
+
+    if target=='mat':
+        conf.t=MatConf()
+
+    conf.t.dir=os.path.join(outputdir,projectname+'-'+targetname)
+    conf.t.basetype=targetname
+    conf.t.indexfiles=find_indexfiles(projectdir)
+    conf.t.codedir=os.path.join(outputdir,projectname+'-mat')
+
+    # hardcoded
+    conf.t.urlbase='http://ltfat.sourceforge.net/doc/'
+
+
+    print conf.t.indexfiles
+
+    safe_mkdir(conf.t.dir)
+
+    if conf.t.basetype=='php' or conf.t.basetype=='tex':
+
+        fileext='.'+conf.t.basetype
+
+        # These should not be neccesary to set, as they depend on
+        # reStructuredTex, so they are impossible to change
+        # Still needed for printing the code
+        conf.t.hb='<H2>'
+        conf.t.he='</H2>'
+
+        print "Creating list of files"
+        # Search the Contents files for all files to process
+        allfiles=[]
+        lookupsubdir={}
+        for fname in conf.t.indexfiles:
+            P=ContentsPrinter(conf,fname)
+
+            # Create list of files with subdir appended	
+            subdir,fname=os.path.split(fname)
+            for name in P.files:
+                allfiles.append(os.path.join(subdir,name))
+                lookupsubdir[name]=subdir
+
+        conf.lookupsubdir=lookupsubdir
+
+        print "Writing internal refs"
+        f=open(os.path.join(conf.g.root,'mat2doc','ref-internal.txt'),'w')
+
+        for funname in lookupsubdir.keys():
+            f.write('.. |'+funname+'| replace:: `'+funname+'`\n')
+            f.write('.. _'+funname+': '+os.path.join(conf.t.urlbase,lookupsubdir[funname],
+                    funname)+'.php\n')
+
+        # flush the file, because we need it again very quickly
+        f.flush()
+        f.close()
+
+        # Print Contents files
+        lookupsubdir={}
+        for fname in conf.t.indexfiles:
+            P=ContentsPrinter(conf,fname)
+            if do_rebuild_file(os.path.join(conf.g.root,fname+'.m'),
+                               os.path.join(conf.t.dir,fname+fileext),
+                               rebuildmode):
+                P.write_the_file()
+
+
+        for fname in allfiles:
+            if do_rebuild_file(os.path.join(conf.g.root,fname+'.m'),
+                               os.path.join(conf.t.dir,fname+fileext),
+                               rebuildmode):
+                print 'Rebuilding '+conf.t.basetype+' '+fname
+
+                P=matfile_factory(conf,fname)
+                P.write_the_file()
+
+    if conf.t.basetype=='mat':
+
+        print 9999
+        for root, dirs, files in os.walk(conf.t.dir, topdown=False):
+            # Walk through the .m files
+            for mfile in filter(lambda x: x[-2:]=='.m',files):
+                print 'MAT '+os.path.join(root,mfile)
+                print_matlab(conf,os.path.join(root,mfile),os.path.join(root,mfile))
+        
+
+    if conf.t.basetype=='verify':
+
+        print conf.t.sourcedir
+
+        for root, dirs, files in os.walk(conf.t.sourcedir, topdown=False):
+            # Walk through the .m files
+            for name in filter(lambda x: x[-2:]=='.m',files):
+                fullname=os.path.join(root,name)
+                print 'VERIFY '+name
+
+                ignored=0
+                for s in conf.t.ignore:
+                    if re.compile(s).search(name, 1):
+                        ignored=1
+
+                if ignored==1:
+                    print 'IGNORED',name
+                else:
+                    f=open(fullname);
+                    buf=f.read()
+                    f.close()
+
+                    for target in conf.t.targets:
+                        if buf.find(target)==-1:
+                            print '    ',target,'is missing'
+
+                    for notappear in conf.t.notappears:
+                        pos=buf.find(notappear)
+                        if pos>1:
+                            endpos=buf.find('\n',pos)
+                            print '    ',buf[pos:endpos]
 
 
 # ------------------ Run the program from the command line -------------
@@ -1468,16 +1646,43 @@ args = parser.parse_args()
 
 # Locate the mat2doc configuration directory
 
-if os.path.isdir(args.filename) and os.path.isdir(args.filename+os.sep+'mat2doc'):
-    # Is the filename a directory directly containing mat2doc. 
+head=os.path.abspath(os.path.expanduser(args.filename))
+if not os.path.isdir(head):
+    (head,tail)=os.path.split(head)
 
-    print "Found directly in directory"
+while 1:
+    s=os.path.join(head,'mat2doc')
+    if os.path.isdir(s):
+        # Found it
+        break
+    else:
+        (newhead,tail)=os.path.split(head)
+        if newhead==head:
+            print "Not found"
+            sys.exit()
+        else:
+            head=newhead
 
 
-else:
-    # Step 2: If not, step backwards to find it.
-    
-    print "Looking backwards"
+# Absolute path to the configuration directory
+confdir=s
+
+# Absolute path to the project directory
+projectdir=os.path.dirname(confdir)
+
+# Name of the project (the directory name)
+projectname=os.path.basename(projectdir)
+
+# Absolute path to the output directory, hardcoded for now
+outputdir=os.path.abspath(os.path.expanduser('~/newpublish'))
+
+print confdir
+print projectdir
+print outputdir
+print args.target
+print projectname
+
+printdoc(projectname,projectdir,outputdir,args.target,rebuildmode='auto')
 
 
 
