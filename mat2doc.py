@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
-import sys,os,os.path,string,re,codecs
+import sys,os,os.path,string,re,codecs,shutil
 import argparse
 from subprocess import *
 
 from pygments import highlight
 from pygments.lexers import MatlabLexer
 from pygments.formatters import HtmlFormatter
+
 
 import docutils.core
 
@@ -64,6 +65,55 @@ def find_indexfiles(projectdir):
 
     return indexfiles
 
+def do_rebuild_file(source,dest,mode):
+    if mode=='rebuild':
+        return True
+
+    if not os.path.exists(dest):
+        if mode=='cached':
+            print 'Error: Cached version of '+dest+ ' does not exist'
+            sys.exit()
+        
+        print dest +' missing'
+
+        return True
+            
+    is_newer = os.path.getmtime(source)>os.path.getmtime(dest)
+
+    if mode=='auto':
+        return is_newer
+
+    if mode=='cached':
+        return False
+
+
+# ------------------ version control export routines ----------------------
+
+def gitAutoStage(repo):
+    # This command explicitly swicthes working directory to the
+    # repository, otherwise git will think that the directory is
+    # empty, and stage all files for removal.
+    s = 'cd '+repo+'; git add -u'
+    os.system(s)
+
+def gitStageExport(repo,outputtargetdir):
+    rmrf(outputtargetdir)
+    s=os.path.join(repo,'.git')
+    os.system('git --git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
+
+def detectVersionControl(projectdir):
+    if os.path.exists(os.path.join(projectdir,'.svn')):
+        return 'svn'
+    if os.path.exists(os.path.join(projectdir,'.git')):
+        return 'git'
+    return 'none'
+
+def matExport(projectdir,outputtargetdir):
+    vctype=detectVersionControl(projectdir)
+    if vctype=='git':
+        gitAutoStage(projectdir)
+        gitStageExport(projectdir,outputtargetdir)
+
 # ------------------ safe reading and writing of text files ---------------
 def saferead(filename):
     f=codecs.open(filename,'r',encoding="utf-8")
@@ -92,6 +142,7 @@ def safewritelines(filename,buf):
     s=u'\n'.join(buf)+u'\n'
     safewrite(filename,s)
 
+# --------- Calling reStructuredText ---------------------------------
 
 def call_rst(instring,outtype):
     # NOTE TO SELF: The name of the commandline option is
@@ -124,7 +175,7 @@ def call_rst(instring,outtype):
     return unicode(buf,'utf-8')
 
 def call_bibtex2html(reflist,conf):
-    outname=conf.g.tmpdir+'reflist'
+    outname=os.path.join(conf.g.tmpdir,'reflist')
 
     safewritelines(outname,reflist)
 
@@ -174,7 +225,7 @@ def rst_postprocess(instr,outtype):
 
     return buf
 
-    
+# ----------  Protection routines ---------------------------
 
 def protect_tex(line):
     # Protect characters so that they are not treated as special
@@ -198,27 +249,6 @@ def protect_html(line):
     line=line.replace('>','&gt;')
     
     return line
-
-def do_rebuild_file(source,dest,mode):
-    if mode=='rebuild':
-        return True
-
-    if not os.path.exists(dest):
-        if mode=='cached':
-            print 'Error: Cached version of '+dest+ ' does not exist'
-            sys.exit()
-        
-        print dest +' missing'
-
-        return True
-            
-    is_newer = os.path.getmtime(source)>os.path.getmtime(dest)
-
-    if mode=='auto':
-        return is_newer
-
-    if mode=='cached':
-        return False
 
 
 # This is the base class for deriving all configuration objects.
@@ -313,18 +343,7 @@ class BasePrinter(object):
         if len(self.subdir)>0:
             backdir='../'
 
-
-        #f=codecs.open(self.c.g.root+fname+'.m',encoding="utf-8")
         buf=safereadlines(os.path.join(self.c.g.root,fname+'.m'))
-        #f=file(self.c.g.root+fname+'.m')
-        #buf=f.readlines()
-        #f.close()
-
-        self.is_oldformat = "%OLDFORMAT\n" in buf
-
-        if self.is_oldformat:
-            print 'Error: OLDFORMAT No longer supported.'
-            sys.exit()
 
         self.buf_help=[]
 
@@ -345,7 +364,7 @@ class BasePrinter(object):
     def writelines(self,fname,buf):
 	# Create directory to hold the file if it does not already
 	# exist.
-	fullname=self.c.t.dir+fname
+	fullname=os.path.join(self.c.t.dir,fname)
 	base,name=os.path.split(fullname)
 	if not os.path.exists(base):
 	   os.mkdir(base)
@@ -563,10 +582,10 @@ class ExecPrinter(BasePrinter):
                 # make sure the environment is closed
                 out['body'].append('')
 
-                outputprefix=self.c.t.dir+self.fullname+'_'+`exec_n`
+                outputprefix=os.path.join(self.c.t.dir,self.fullname+'_'+`exec_n`)
 
                 # Execute the code
-                (outbuf,nfigs)=execplot(self.c.g.plotengine,codebuf,outputprefix,self.c.t.imagetype)
+                (outbuf,nfigs)=execplot(self.c.g.plotengine,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
 
                 # Append the result, if there is any
                 if len(outbuf)>0:
@@ -634,12 +653,7 @@ class ExecPrinter(BasePrinter):
         out['body'].append('')
 
         # Read the code from a generated file into a buffer
-        self.codebuf=saferead(self.c.t.codedir+self.fullname+'.m')
-        #f=codecs.open(self.c.t.codedir+self.fullname+'.m',encoding="utf-8")
-        #f=file(self.c.t.codedir+self.fullname+'.m')
-        #self.codebuf=f.read()
-        #f.close
-
+        self.codebuf=saferead(os.path.join(self.c.t.codedir,self.fullname+'.m'))
 
     def print_code_html(self):
         
@@ -681,7 +695,6 @@ class ExecPrinter(BasePrinter):
                 line=words[0]
                 for ii in range((len(words)-1)/2):
                     line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]                
-
             buf_to_rst+=line+u'\n'
 
         if 0: #self.c.t.basetype=='tex':
@@ -827,11 +840,11 @@ class ExamplePrinter(ExecPrinter):
         # - does a search and replace to put in the correct filenames
         #   for the .. figure:: tags
 
-        outputprefix=self.c.t.dir+self.fullname
+        outputprefix=os.path.join(self.c.t.dir,self.fullname)
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype)
+                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
 
         
         # Go through the code and fill in the correct filenames
@@ -885,11 +898,11 @@ class ExamplePrinter(ExecPrinter):
         # Execute the inherited print_tex, to do the main work
         ExecPrinter.print_tex(self,obuf)
 
-        outputprefix=self.c.t.dir+self.fullname
+        outputprefix=self.os.join(self.c.t.dir,self.fullname)
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype)
+                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
 
         
         obuf.append('\\subsubsection*{Output}')
@@ -1180,10 +1193,10 @@ def clean_tex(line):
     return line
 
 
-def execplot(plotengine,buf,outprefix,ptype):
-    tmpdir='/tmp/'
+def execplot(plotengine,buf,outprefix,ptype,tmpdir):
+
     tmpfile='plotexec'
-    tmpname=tmpdir+tmpfile+'.m'
+    tmpname=os.path.join(tmpdir,tmpfile+'.m')
     fullpath=os.path.dirname(outprefix)
     funname =os.path.basename(outprefix).split('.')[0]
 
@@ -1200,6 +1213,8 @@ def execplot(plotengine,buf,outprefix,ptype):
 
     obuf=u''
            
+    obuf+='startup;\n'
+
     obuf+="disp('MARKER');\n"
 
     obuf+="""
@@ -1215,6 +1230,7 @@ set(0, 'DefaultFigureVisible', 'off');
         obuf+=line+'\n'
 
     obuf+="""
+
 for ii=1:numel(findall(0,'type','figure'))
   figure(ii);
   %X=get(gcf,'PaperPosition');
@@ -1325,11 +1341,11 @@ def print_matlab(conf,ifilename,ofilename):
                         obuf+='</table><br><table><tr>\n'
                         continue
 
-                    obuf+=rline+'\n'
+                    obuf+=rline+u'\n'
 
                 # Write the clean HTML to a temporary file and process it using
                 # lynx.
-                outname=conf.g.tmpdir+'reflist'
+                outname=os.path.join(conf.g.tmpdir,'reflist')
                 safewrite(outname+'.html',obuf)
 
                 s='lynx -dump '+outname+'.html > '+outname+'.txt'
@@ -1339,9 +1355,9 @@ def print_matlab(conf,ifilename,ofilename):
 
                 buf=map(lambda x:x.strip(),buf)
 
-                outbuf+='%   References:\n'
+                outbuf+=u'%   References:\n'
                 for rline in buf[0:]:
-                    outbuf+='%     '+rline+'\n'
+                    outbuf+=u'%     '+rline+'\n'
 
             line=ibuf.pop()
 
@@ -1361,7 +1377,7 @@ def print_matlab(conf,ifilename,ofilename):
                 print 'Error: Figure definition must be followed by a single empty line.'
                 sys.exit()
 
-            outbuf+='%   Figure '+`nfig`+': '+heading[1:].strip()+'\n'
+            outbuf+=u'%   Figure '+`nfig`+': '+heading[1:].strip()+u'\n'
             line=ibuf.pop()
 
             if len(line[1:].strip())>0:
@@ -1440,16 +1456,13 @@ def print_matlab(conf,ifilename,ofilename):
     # Append url for quick online help
     # Find the name of the file + the subdir in the package 
     shortpath=ifilename[len(conf.t.dir):-2]
-    outbuf+='%\n'
-    outbuf+='%   Url: '+conf.t.urlbase+shortpath+'.'+conf.t.urlext+'\n'
+    outbuf+=u'%\n'
+    outbuf+=u'%   Url: '+conf.t.urlbase+shortpath+'.'+conf.t.urlext+'\n'
     
-    # --- Append Copyright if defined. --
-    # Append empty line to seperate copyright from help section
-    outbuf+='\n'
-    buf=conf.g.copyright
-
-    for cline in buf:
-        outbuf+=u'% '+cline
+    # --- Append header
+    # Append empty line to seperate header from help section
+    outbuf+=u'\n'
+    outbuf+=conf.t.header
 
     # Append the rest (non-help section)
     while len(ibuf)>0:
@@ -1458,6 +1471,9 @@ def print_matlab(conf,ifilename,ofilename):
 
     # Write the last line and write the buffer to file
     outbuf+=line+'\n'
+
+    outbuf+=conf.t.footer
+
     safewrite(ofilename,outbuf)
 
 
@@ -1489,9 +1505,10 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
     # Empty the tmp directory for safety
     rmrf(tmpdir)
 
-    conffile=projectdir+'mat2doc/mat2docconf.py'
+    #conffile=projectdir+'mat2doc/mat2docconf.py'
 
     target=targetname
+    confdir=os.path.join(projectdir,'mat2doc_new')
 
     conf=ConfType()
 
@@ -1514,8 +1531,9 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
 
     if target=='mat':
         conf.t=MatConf()
-
-    conf.t.dir=os.path.join(outputdir,projectname+'-'+targetname)
+        
+    outputtargetdir=os.path.join(outputdir,projectname+'-'+targetname)
+    conf.t.dir=outputtargetdir
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
     conf.t.codedir=os.path.join(outputdir,projectname+'-mat')
@@ -1528,6 +1546,13 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
 
     safe_mkdir(conf.t.dir)
 
+    # Read the targe-dependant header and footer
+    conf.t.header=saferead(os.path.join(confdir,'header.'+targetname))
+    conf.t.footer=saferead(os.path.join(confdir,'footer.'+targetname))
+
+    # Copy the startup.m file to the temporary directory
+    shutil.copy(os.path.join(confdir,'startup.m'),tmpdir)
+    
     if conf.t.basetype=='php' or conf.t.basetype=='tex':
 
         fileext='.'+conf.t.basetype
@@ -1585,8 +1610,9 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
                 P.write_the_file()
 
     if conf.t.basetype=='mat':
+          
+        matExport(projectdir,outputtargetdir)
 
-        print 9999
         for root, dirs, files in os.walk(conf.t.dir, topdown=False):
             # Walk through the .m files
             for mfile in filter(lambda x: x[-2:]=='.m',files):
@@ -1651,7 +1677,7 @@ if not os.path.isdir(head):
     (head,tail)=os.path.split(head)
 
 while 1:
-    s=os.path.join(head,'mat2doc')
+    s=os.path.join(head,'mat2doc_new')
     if os.path.isdir(s):
         # Found it
         break
@@ -1681,6 +1707,7 @@ print projectdir
 print outputdir
 print args.target
 print projectname
+print detectVersionControl(projectdir)
 
 printdoc(projectname,projectdir,outputdir,args.target,rebuildmode='auto')
 
