@@ -86,6 +86,37 @@ def do_rebuild_file(source,dest,mode):
     if mode=='cached':
         return False
 
+# ------------------ read the configuration files ------------------------
+
+def findMat2docDir(searchdir):
+    head=os.path.abspath(os.path.expanduser(searchdir))
+    if not os.path.isdir(head):
+        (head,tail)=os.path.split(head)
+
+    while 1:
+        s=os.path.join(head,'mat2doc_new')
+        if os.path.isdir(s):
+            # Found it
+            break
+        else:
+            (newhead,tail)=os.path.split(head)
+            if newhead==head:
+                print "Not found"
+                sys.exit()
+            else:
+                head=newhead
+
+
+    # Absolute path to the configuration directory
+    confdir=s
+
+    # Absolute path to the project directory
+    projectdir=os.path.dirname(confdir)
+
+    # Name of the project (the directory name)
+    projectname=os.path.basename(projectdir)
+
+    return (projectname,projectdir,confdir)
 
 # ------------------ version control export routines ----------------------
 
@@ -320,6 +351,119 @@ class PhpConf(ConfType):
  
     referenceheader='<br><br><H2>References:</H2>'
 
+    def structure_as_webpage(self,caller,maincontents,doctype):
+
+        backdir=''
+        if len(caller.subdir)>0:
+            backdir='../'
+
+        includedir=os.path.join(backdir,caller.c.t.includedir)
+
+        phpvars = caller.print_variables()
+
+        maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
+
+        # Opening of the php-file
+        obuf=['<?php']
+        obuf.append('$path_include="'+includedir+'";')
+        obuf.append('include($path_include."main.php");')
+        obuf.append('$doctype='+`doctype`+';')
+
+        obuf.extend(phpvars)
+        
+        obuf.append("$content = '")
+        obuf.extend(maincontents)
+        obuf.append("';")
+
+        obuf.append('printpage($title,$keywords,$seealso,$demos,$content,$doctype);')
+
+        # Close PHP
+        obuf.append('?>')
+
+        return obuf
+
+
+# This is the class from which Html configurations should be
+# derived.
+class HtmlConf(ConfType):
+    basetype='html'
+    fext='.html'
+    widthstr=''
+    imagetype='png'
+
+    # Use bibtex2html to generate html references
+    def references(self,reflist,obuf,caller):
+        buf=call_bibtex2html(reflist,caller.c)
+
+        obuf.append(self.referenceheader)
+        obuf.extend(buf)
+        
+
+    beginurl='<a href="'
+    endurl='</a>'
+    urlseparator='">'
+
+    beginboxheader='<b>'
+    endboxheader='</b><br>'
+ 
+    referenceheader='<br><br><H2>References:</H2>'
+
+    def structure_as_webpage(self,caller,maincontents,doctype):
+
+        phpvars = caller.print_variables()
+
+        maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
+
+        # Opening of the php-file
+        obuf=[' ']
+
+        # header
+        obuf.append(self.header)
+        obuf.append('<title>'+caller.title+'</title>')
+        obuf.append("""
+        <link rel="stylesheet" href="include/html4css1.css" type="text/css">
+        <link rel="stylesheet" href="include/rr.css" type="text/css">
+        <link rel="stylesheet" href="include/color_text.css" type="text/css">
+        <script type="text/javascript"
+        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+        </script>
+        </head>
+        <body>
+        <div id="container">
+        <div id="header">""")
+
+        # top of page
+        obuf.append('<table style="height:100%; width:100%"> \n \
+        <tr> \n \
+        <td valign="top" width="65%"> \n \
+        <h1>UNLocBoX-RR</h1> \n \
+        <h2>- Reproducible research addendum-</h2> \n \
+        </td> \n \
+        <td valign="middle"> \n \
+        <a href="/index.html"><img src="include/unlocbox.png" alt="UnLocX Logo" height="70"></a> \n \
+        </td> \n \
+        </tr> \n \
+        </table> ')
+        # menu
+
+        menufile = open(caller.c.t.dir+caller.subdir+'/include/contentsmenu'+caller.c.t.fext)
+        obuf.extend(menufile.readlines())
+
+        #content
+        obuf.append('<div id="content">' )
+        obuf.extend(maincontents)
+        obuf.append('</div>\n')
+        obuf.append('</div> \n \
+        </div> \n \
+        </body>\n \
+        </html>')
+        
+
+
+        return obuf
+
+
+
 # This is the class from which Mat configurations should be
 # derived.
 class MatConf(ConfType):
@@ -372,36 +516,7 @@ class BasePrinter(object):
         safewritelines(fullname,buf)
 
 
-    def structure_as_webpage(self,maincontents,doctype):
 
-        backdir=''
-        if len(self.subdir)>0:
-            backdir='../'
-
-        includedir=os.path.join(backdir,self.c.t.includedir)
-
-        phpvars = self.print_variables()
-
-        maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
-
-        # Opening of the php-file
-        obuf=['<?php']
-        obuf.append('$path_include="'+includedir+'";')
-        obuf.append('include($path_include."main.php");')
-        obuf.append('$doctype='+`doctype`+';')
-
-        obuf.extend(phpvars)
-        
-        obuf.append("$content = '")
-        obuf.extend(maincontents)
-        obuf.append("';")
-
-        obuf.append('printpage($title,$keywords,$seealso,$demos,$content,$doctype);')
-
-        # Close PHP
-        obuf.append('?>')
-
-        return obuf
 
 
 class ExecPrinter(BasePrinter):
@@ -667,7 +782,7 @@ class ExecPrinter(BasePrinter):
 
         maincontents.extend(highlightbuf.split('\n'))
 
-        return self.structure_as_webpage(maincontents,2)
+        return self.c.t.structure_as_webpage(self,maincontents,2)
 
 
     def print_body(self,obuf):
@@ -757,7 +872,7 @@ class ExecPrinter(BasePrinter):
 
         self.print_body(maincontents)
 
-        return self.structure_as_webpage(maincontents,1)
+        return self.c.t.structure_as_webpage(self,maincontents,1)
 
 
     def print_tex(self,obuf):
@@ -898,7 +1013,7 @@ class ExamplePrinter(ExecPrinter):
         # Execute the inherited print_tex, to do the main work
         ExecPrinter.print_tex(self,obuf)
 
-        outputprefix=self.os.join(self.c.t.dir,self.fullname)
+        outputprefix=os.path.join(self.c.t.dir,self.fullname)
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
@@ -991,7 +1106,7 @@ class ContentsPrinter(BasePrinter):
                 maincontents.append(self.c.t.hb+line[1]+self.c.t.he)
                 continue
 
-        self.html = self.structure_as_webpage(maincontents,0)
+        self.html = self.c.t.structure_as_webpage(self,maincontents,0)
 
 
     def print_rst(self):
@@ -1110,7 +1225,7 @@ class ContentsPrinter(BasePrinter):
             rststr=self.print_rst()
             phpstr=call_rst(rststr,'php')
             buf = rst_postprocess(phpstr,'php')
-            buf = self.structure_as_webpage(buf,0)
+            buf = self.c.t.structure_as_webpage(self,buf,0)
 
 
             #self.print_html()
@@ -1205,11 +1320,14 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir):
                'eps':'-depsc'}[ptype]
 
     # Clear old figures
-    p=os.listdir(fullpath)
-    # Match only the beginning of the name, to avoid sgram maching resgram etc.
-    oldfiles=filter(lambda x: x[0:len(funname)]==funname,p)
-    for fname in oldfiles:
-        os.remove(os.path.join(fullpath, fname))
+    if os.path.exists(fullpath):
+        p=os.listdir(fullpath)
+        # Match only the beginning of the name, to avoid sgram maching resgram etc.
+        oldfiles=filter(lambda x: x[0:len(funname)]==funname,p)
+        for fname in oldfiles:
+            os.remove(os.path.join(fullpath, fname))
+    else:
+        safe_mkdir(fullpath)
 
     obuf=u''
            
@@ -1526,6 +1644,9 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
     if target=='php':
         conf.t=PhpConf()
 
+    if target=='html':
+        conf.t=HtmlConf()
+
     if target=='tex':
         conf.t=TexConf()
 
@@ -1547,13 +1668,22 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
     safe_mkdir(conf.t.dir)
 
     # Read the targe-dependant header and footer
-    conf.t.header=saferead(os.path.join(confdir,'header.'+targetname))
-    conf.t.footer=saferead(os.path.join(confdir,'footer.'+targetname))
+    headerfile=os.path.join(confdir,'header.'+targetname)
+    if os.path.exists(headerfile):
+        conf.t.header=saferead(headerfile)
+    else:
+        conf.t.header=''
+
+    footerfile=os.path.join(confdir,'footer.'+targetname)
+    if os.path.exists(footerfile):    
+        conf.t.footer=saferead(footerfile)
+    else:
+        conf.t.footer=''
 
     # Copy the startup.m file to the temporary directory
     shutil.copy(os.path.join(confdir,'startup.m'),tmpdir)
     
-    if conf.t.basetype=='php' or conf.t.basetype=='tex':
+    if conf.t.basetype=='php' or conf.t.basetype=='tex' or conf.t.basetype=='html':
 
         fileext='.'+conf.t.basetype
 
@@ -1671,33 +1801,7 @@ args = parser.parse_args()
 
 
 # Locate the mat2doc configuration directory
-
-head=os.path.abspath(os.path.expanduser(args.filename))
-if not os.path.isdir(head):
-    (head,tail)=os.path.split(head)
-
-while 1:
-    s=os.path.join(head,'mat2doc_new')
-    if os.path.isdir(s):
-        # Found it
-        break
-    else:
-        (newhead,tail)=os.path.split(head)
-        if newhead==head:
-            print "Not found"
-            sys.exit()
-        else:
-            head=newhead
-
-
-# Absolute path to the configuration directory
-confdir=s
-
-# Absolute path to the project directory
-projectdir=os.path.dirname(confdir)
-
-# Name of the project (the directory name)
-projectname=os.path.basename(projectdir)
+projectname,projectdir,confdir=findMat2docDir(args.filename)
 
 # Absolute path to the output directory, hardcoded for now
 outputdir=os.path.abspath(os.path.expanduser('~/newpublish'))
