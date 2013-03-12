@@ -183,7 +183,7 @@ def call_rst(instring,outtype):
     # Substitutions for making restructuredtext easier
     instring = re.sub(r"\\\\",r"\\\\\\\\",instring)
 
-    if outtype=='php':
+    if outtype=='php' or outtype=='html':
         args = {
             'math_output' : 'MathJax',
             'initial_header_level' : 2
@@ -196,6 +196,7 @@ def call_rst(instring,outtype):
     # Look up the correct writer name
     writernames={}
     writernames['php']='html'
+    writernames['html']='html'
     writernames['tex']='latex2e'
 
     #instring+='CLOSETHEDAMMTHINGIE.\n'
@@ -241,7 +242,7 @@ def rst_postprocess(instr,outtype):
     buf = instr.split('\n')
 
     # php specific transformations
-    if outtype=='php':
+    if outtype=='php' or outtype=='html':
         # Transform <em> into <var>
         #buf=  re.sub('<em>','<var>',buf)
         #buf=  re.sub('</em>','</var>',buf)
@@ -281,19 +282,47 @@ def protect_html(line):
     
     return line
 
+# ------------ Configuration and output-producing object structure ---------------
+
+# Empty type to hold a global and a local configuration object
+class ConfContainer:
+    pass
 
 # This is the base class for deriving all configuration objects.
-class ConfType:
+class ConfType:    
+    def __init__(self,confdir):
+        self.confdir=confdir
+
+        s=os.path.join(self.confdir,'conf.py')
+
+        if os.path.exists(s):
+            print 'Configuration file found '+s
+            newlocals=locals()
+            
+            execfile(s,globals(),newlocals)
+
+            # Update the object with the dictionary of keys read from
+            # the configuration file
+            for k, v in newlocals.items():
+                setattr(self, k, v)        
+
+class GlobalConf(ConfType):
+    pass
+    #otherrefs=[] # Hardcoded, remove
+
+class TargetConf(ConfType):    
     bibstyle='abbrv'
-    urlext='php'
     otherrefs=[]
 
+    def __init__(self,g):        
+        self.confdir=os.path.join(g.confdir,self.basetype)
+
+        ConfType.__init__(self,self.confdir)
+
+
  # This is the class from which TeX configuration should be derived.
-class TexConf(ConfType):
+class TexConf(TargetConf):
     basetype='tex'
-    fext='.tex'
-    widthstr='70ex'
-    imagetype='eps'
 
     # Protect characters so that they are not treated as special
     # commands for TeX
@@ -321,14 +350,17 @@ class TexConf(ConfType):
 
     referenceheader='\n\\textbf{References:}'
 
-# This is the class from which PHP configurations should be
-# derived.
-class PhpConf(ConfType):
-    basetype='php'
-    fext='.php'
-    widthstr=''
-    imagetype='png'
-    includedir='../include'
+# This class serves as the ancestor for PhPConf and HtmlConf, and
+# should only be used for that.
+class WebConf(TargetConf):
+    beginurl='<a href="'
+    endurl='</a>'
+    urlseparator='">'
+
+    beginboxheader='<b>'
+    endboxheader='</b><br>'
+ 
+    referenceheader='<br><br><H2>References:</H2>'
 
     # Use bibtex2html to generate html references
     def references(self,reflist,obuf,caller):
@@ -342,14 +374,12 @@ class PhpConf(ConfType):
             obuf.extend(buf)
         
 
-    beginurl='<a href="'
-    endurl='</a>'
-    urlseparator='">'
 
-    beginboxheader='<b>'
-    endboxheader='</b><br>'
- 
-    referenceheader='<br><br><H2>References:</H2>'
+
+# This is the class from which PHP configurations should be
+# derived.
+class PhpConf(WebConf):
+    basetype='php'
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
@@ -385,80 +415,39 @@ class PhpConf(ConfType):
 
 # This is the class from which Html configurations should be
 # derived.
-class HtmlConf(ConfType):
+class HtmlConf(WebConf):
     basetype='html'
-    fext='.html'
-    widthstr=''
-    imagetype='png'
 
-    # Use bibtex2html to generate html references
-    def references(self,reflist,obuf,caller):
-        buf=call_bibtex2html(reflist,caller.c)
+    def __init__(self,g):
+        WebConf.__init__(self,g)
 
-        obuf.append(self.referenceheader)
-        obuf.extend(buf)
-        
+        # Read the template
+        templatefile=os.path.join(self.confdir,'template.'+self.basetype)
+        if os.path.exists(templatefile):
+            self.template=saferead(templatefile)
+        else:
+            raise Mat2docError('Template file %s is missing.' % templatefile)
 
-    beginurl='<a href="'
-    endurl='</a>'
-    urlseparator='">'
-
-    beginboxheader='<b>'
-    endboxheader='</b><br>'
- 
-    referenceheader='<br><br><H2>References:</H2>'
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
-        phpvars = caller.print_variables()
 
-        maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
+        # Is this really necessary
+        #maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
 
-        # Opening of the php-file
+        # Opening of the html-file
         obuf=[' ']
 
         # header
-        obuf.append(self.header)
-        obuf.append('<title>'+caller.title+'</title>')
-        obuf.append("""
-        <link rel="stylesheet" href="include/html4css1.css" type="text/css">
-        <link rel="stylesheet" href="include/rr.css" type="text/css">
-        <link rel="stylesheet" href="include/color_text.css" type="text/css">
-        <script type="text/javascript"
-        src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
-        </script>
-        </head>
-        <body>
-        <div id="container">
-        <div id="header">""")
 
-        # top of page
-        obuf.append('<table style="height:100%; width:100%"> \n \
-        <tr> \n \
-        <td valign="top" width="65%"> \n \
-        <h1>UNLocBoX-RR</h1> \n \
-        <h2>- Reproducible research addendum-</h2> \n \
-        </td> \n \
-        <td valign="middle"> \n \
-        <a href="/index.html"><img src="include/unlocbox.png" alt="UnLocX Logo" height="70"></a> \n \
-        </td> \n \
-        </tr> \n \
-        </table> ')
-        # menu
-
-        menufile = open(caller.c.t.dir+caller.subdir+'/include/contentsmenu'+caller.c.t.fext)
-        obuf.extend(menufile.readlines())
-
-        #content
-        obuf.append('<div id="content">' )
-        obuf.extend(maincontents)
-        obuf.append('</div>\n')
-        obuf.append('</div> \n \
-        </div> \n \
-        </body>\n \
-        </html>')
-        
-
+        content='\n'.join(maincontents)
+        obuf.append(self.template.format(TITLE=caller.title,
+                                         CONTENT=content,
+                                         KEYWORDS='',
+                                         FOLDERTITLE='FOLDERTITLE',
+                                         FOLDERSUBTITLE='FOLDERSUBTITLE',
+                                         MENU='MENU',
+))
 
         return obuf
 
@@ -466,8 +455,27 @@ class HtmlConf(ConfType):
 
 # This is the class from which Mat configurations should be
 # derived.
-class MatConf(ConfType):
+class MatConf(TargetConf):
     basetype='mat'
+
+    def __init__(self,g):
+        TargetConf.__init__(self,g)
+
+        # Read the targe-dependant header and footer
+        headerfile=os.path.join(confdir,'header.'+self.basetype)
+        if os.path.exists(headerfile):
+            self.header=saferead(headerfile)
+        else:
+            self.header=''
+
+        footerfile=os.path.join(confdir,'footer.'+self.basetype)
+        if os.path.exists(footerfile):    
+            self.footer=saferead(footerfile)
+        else:
+            self.footer=''
+
+# -----------------  Object structure for the parser -------------------------
+
 
 class BasePrinter(object):
     def __init__(self,conf,fname):
@@ -487,7 +495,7 @@ class BasePrinter(object):
         if len(self.subdir)>0:
             backdir='../'
 
-        buf=safereadlines(os.path.join(self.c.g.root,fname+'.m'))
+        buf=safereadlines(os.path.join(self.c.g.projectdir,fname+'.m'))
 
         self.buf_help=[]
 
@@ -565,11 +573,11 @@ class ExecPrinter(BasePrinter):
         out['body'].append('')
 
         # Append the internal reference lookup for this project
-        out['body'].append('.. include:: '+os.path.join(self.c.g.root,'mat2doc','ref-internal.txt'))
+        out['body'].append('.. include:: '+os.path.join(self.c.g.confdir,'ref-internal.txt'))
 
         # Append the lookups for other projects        
         for filename in self.c.g.otherrefs:
-            out['body'].append('.. include:: '+os.path.join(self.c.g.root,'mat2doc',filename))
+            out['body'].append('.. include:: '+os.path.join(self.c.g.confdir,filename))
 
         out['body'].append('')
 
@@ -768,7 +776,11 @@ class ExecPrinter(BasePrinter):
         out['body'].append('')
 
         # Read the code from a generated file into a buffer
-        self.codebuf=saferead(os.path.join(self.c.t.codedir,self.fullname+'.m'))
+        s=os.path.join(self.c.t.codedir,self.fullname+'.m')
+        if os.path.exists(s):
+            self.codebuf=saferead(s)
+        else:
+            raise Mat2docError("The Matlab code file %s cannot be found. You probably need to run the 'mat' target first." % s)
 
     def print_code_html(self):
         
@@ -826,7 +838,7 @@ class ExecPrinter(BasePrinter):
         firstpart =buf[0:splitidx]
         secondpart=buf[splitidx:]
 
-        if self.c.t.basetype=='php':
+        if self.c.t.basetype=='php' or self.c.t.basetype=='html':
             firstpart =re.sub("--Q=","",firstpart)
             secondpart=re.sub("--Q","'",secondpart)
             secondpart=re.sub("Q ","',",secondpart)
@@ -887,7 +899,7 @@ class ExecPrinter(BasePrinter):
         return obuf
 
     def write_the_file(self):
-        if self.c.t.basetype=='php':
+        if self.c.t.basetype=='php' or self.c.t.basetype=='html':
             self.write_html()            
 
         if self.c.t.basetype=='tex':
@@ -1114,7 +1126,7 @@ class ContentsPrinter(BasePrinter):
         maincontents=[]
 
         # Append the internal reference lookup for this project
-        maincontents.append('.. include:: '+os.path.join(self.c.g.root,'mat2doc','ref-internal.txt'))
+        maincontents.append('.. include:: '+os.path.join(self.c.g.confdir,'ref-internal.txt'))
 
         maincontents.append(self.title)
         maincontents.append('='*len(self.title))
@@ -1221,16 +1233,13 @@ class ContentsPrinter(BasePrinter):
 
     def write_the_file(self):
 
-        if self.c.t.basetype=='php':
+        if self.c.t.basetype=='php' or self.c.t.basetype=='html':
             rststr=self.print_rst()
-            phpstr=call_rst(rststr,'php')
-            buf = rst_postprocess(phpstr,'php')
+            webstr=call_rst(rststr,self.c.t.basetype)
+            buf = rst_postprocess(webstr,self.c.t.basetype)
             buf = self.c.t.structure_as_webpage(self,buf,0)
-
-
-            #self.print_html()
             
-            self.writelines(os.path.join(self.subdir,'index.php'),buf)
+            self.writelines(os.path.join(self.subdir,'index'+self.c.t.fext),buf)
             
             menu=self.print_menu()
             self.writelines(os.path.join(self.subdir,'contentsmenu'+self.c.t.fext),menu)
@@ -1575,7 +1584,7 @@ def print_matlab(conf,ifilename,ofilename):
     # Find the name of the file + the subdir in the package 
     shortpath=ifilename[len(conf.t.dir):-2]
     outbuf+=u'%\n'
-    outbuf+=u'%   Url: '+conf.t.urlbase+shortpath+'.'+conf.t.urlext+'\n'
+    outbuf+=u'%   Url: '+conf.t.urlbase+shortpath+conf.t.urlext+'\n'
     
     # --- Append header
     # Append empty line to seperate header from help section
@@ -1599,7 +1608,7 @@ def print_matlab(conf,ifilename,ofilename):
 # depending on whether the first word of the first line is 'function'
 def matfile_factory(conf,fname):
     
-    buf=safereadlines(os.path.join(conf.g.root,fname+'.m'))
+    buf=safereadlines(os.path.join(conf.g.projectdir,fname+'.m'))
 
     if buf[0].split()[0]=='function':
         return FunPrinter(conf,fname)
@@ -1628,13 +1637,13 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
     target=targetname
     confdir=os.path.join(projectdir,'mat2doc_new')
 
-    conf=ConfType()
+    conf=ConfContainer()
 
     # Global
     # conf.g=globalconf
-    conf.g=ConfType()
-    conf.g.root=projectdir # old
-    conf.g.projectdir=projectdir # new
+    conf.g=GlobalConf(confdir)
+    conf.g.projectdir=projectdir
+    conf.g.confdir=confdir
     conf.g.outputdir=outputdir # new
     conf.g.plotengine=plotengine
     conf.g.tmpdir=tmpdir
@@ -1642,26 +1651,22 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
 
     # Target
     if target=='php':
-        conf.t=PhpConf()
+        conf.t=PhpConf(conf.g)
 
     if target=='html':
-        conf.t=HtmlConf()
+        conf.t=HtmlConf(conf.g)
 
     if target=='tex':
-        conf.t=TexConf()
+        conf.t=TexConf(conf.g)
 
     if target=='mat':
-        conf.t=MatConf()
+        conf.t=MatConf(conf.g)
         
     outputtargetdir=os.path.join(outputdir,projectname+'-'+targetname)
     conf.t.dir=outputtargetdir
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
     conf.t.codedir=os.path.join(outputdir,projectname+'-mat')
-
-    # hardcoded
-    conf.t.urlbase='http://ltfat.sourceforge.net/doc/'
-
 
     print conf.t.indexfiles
 
@@ -1709,7 +1714,7 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
         conf.lookupsubdir=lookupsubdir
 
         print "Writing internal refs"
-        f=open(os.path.join(conf.g.root,'mat2doc','ref-internal.txt'),'w')
+        f=open(os.path.join(conf.g.confdir,'ref-internal.txt'),'w')
 
         for funname in lookupsubdir.keys():
             f.write('.. |'+funname+'| replace:: `'+funname+'`\n')
@@ -1724,14 +1729,14 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
         lookupsubdir={}
         for fname in conf.t.indexfiles:
             P=ContentsPrinter(conf,fname)
-            if do_rebuild_file(os.path.join(conf.g.root,fname+'.m'),
+            if do_rebuild_file(os.path.join(conf.g.projectdir,fname+'.m'),
                                os.path.join(conf.t.dir,fname+fileext),
                                rebuildmode):
                 P.write_the_file()
 
 
         for fname in allfiles:
-            if do_rebuild_file(os.path.join(conf.g.root,fname+'.m'),
+            if do_rebuild_file(os.path.join(conf.g.projectdir,fname+'.m'),
                                os.path.join(conf.t.dir,fname+fileext),
                                rebuildmode):
                 print 'Rebuilding '+conf.t.basetype+' '+fname
