@@ -120,12 +120,20 @@ body {
 	
 }
 
+#menutitle{
+	width: 100%;
+	padding-bottom: 0px;
+	margin: 15px;
+	font-size: 18px;
+	font-weight: bold;
+}
+
 #menu ul{
 	float: left;
 	width: 12em;
 	margin: 0;
 	padding: 0;
-	padding-bottom: 5em;
+	padding-bottom: 2em;
 }
 
 #menu ul li {

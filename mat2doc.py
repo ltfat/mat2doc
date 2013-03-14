@@ -145,6 +145,11 @@ def matExport(projectdir,outputtargetdir):
         gitAutoStage(projectdir)
         gitStageExport(projectdir,outputtargetdir)
 
+    # Remove the mat2doc directory that just got copied/exported
+    s=os.path.join(outputtargetdir,'mat2doc_new')
+    rmrf(s)
+    os.rmdir(s)
+
 # ------------------ safe reading and writing of text files ---------------
 def saferead(filename):
     f=codecs.open(filename,'r',encoding="utf-8")
@@ -296,7 +301,6 @@ class ConfType:
         s=os.path.join(self.confdir,'conf.py')
 
         if os.path.exists(s):
-            print 'Configuration file found '+s
             newlocals=locals()
             
             execfile(s,globals(),newlocals)
@@ -307,8 +311,20 @@ class ConfType:
                 setattr(self, k, v)        
 
 class GlobalConf(ConfType):
-    pass
-    #otherrefs=[] # Hardcoded, remove
+    def __init__(self,confdir,projectname,projectdir):
+        ConfType.__init__(self,confdir)
+        
+        # Sanitize the output directory for safety
+        self.outputdir=os.path.abspath(os.path.expanduser(self.outputdir))
+
+        self.projectname=projectname
+        self.projectdir=projectdir
+        self.tmpdir=os.path.join(self.outputdir,self.projectname+'-tmp')
+        safe_mkdir(self.tmpdir)
+        # Empty the tmp directory for safety
+        rmrf(self.tmpdir)
+    
+        
 
 class TargetConf(ConfType):    
     bibstyle='abbrv'
@@ -318,6 +334,10 @@ class TargetConf(ConfType):
         self.confdir=os.path.join(g.confdir,self.basetype)
 
         ConfType.__init__(self,self.confdir)
+
+        self.codedir=os.path.join(g.outputdir,g.projectname+'-mat')
+        self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
+
 
 
  # This is the class from which TeX configuration should be derived.
@@ -412,6 +432,31 @@ class PhpConf(WebConf):
 
         return obuf
 
+    def print_menu(self,parsed):
+
+        obuf=[]
+        obuf.append('<?php')
+        obuf.append('$menu = array(')
+
+        # Add a unique number to each line to make them different
+        # In the code below " is used to delimit python strings
+        # and ' is used for the php strings, because we need to include a " into the innermost
+        # string
+        uniq_no=0
+        for line in parsed:
+            uniq_no+=1
+            if line[0]=="li":
+                obuf.append("   'li"+`uniq_no`+"' => '"+"<a href=\""+line[1]+self.fext+"\">"+line[1]+"</a>',")
+
+            if line[0]=="caption":
+                obuf.append("   'caption"+`uniq_no`+"' => '"+line[1]+"',")
+
+        obuf.append(");")
+        obuf.append("?>")
+                    
+        return obuf
+
+
 
 # This is the class from which Html configurations should be
 # derived.
@@ -431,25 +476,54 @@ class HtmlConf(WebConf):
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
+        backdir=''
+        if len(caller.subdir)>0:
+            backdir='../'
 
-        # Is this really necessary
-        #maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
+        includedir=os.path.join(backdir,caller.c.t.includedir)
 
         # Opening of the html-file
         obuf=[' ']
 
-        # header
-
+        # Load the menu from a file, it was previously written there by the ContentsPrinter
+        menu=saferead(os.path.join(self.dir,caller.subdir,'contentsmenu'+self.fext))
+        
         content='\n'.join(maincontents)
         obuf.append(self.template.format(TITLE=caller.title,
+                                         INCLUDEDIR=includedir,
                                          CONTENT=content,
                                          KEYWORDS='',
-                                         FOLDERTITLE='FOLDERTITLE',
-                                         FOLDERSUBTITLE='FOLDERSUBTITLE',
-                                         MENU='MENU',
+                                         MENU=menu,
 ))
 
         return obuf
+
+    def print_menu(self,parsed):
+
+        obuf=[]
+
+        ul_on=0
+        for line in parsed:
+            if line[0]=="li":
+                if not ul_on:
+                    obuf.append('<ul>')
+                    ul_on=1
+
+                obuf.append("<li><a href=\""+line[1]+self.fext+"\">"+line[1]+"</a></li>")
+
+            if line[0]=="caption":
+                if ul_on:
+                    obuf.append('</ul>')
+                    ul_on=0
+                    
+                obuf.append('<div id="menutitle">'+line[1]+'</div>')
+
+        if ul_on:
+            obuf.append('</ul>')
+            ul_on=0
+                    
+        return obuf
+
 
 
 
@@ -1178,30 +1252,6 @@ class ContentsPrinter(BasePrinter):
         return outstr
 
 
-    def print_menu(self):
-
-        obuf=[]
-        obuf.append('<?php')
-        obuf.append('$menu = array(')
-
-        # Add a unique number to each line to make them different
-        # In the code below " is used to delimit python strings
-        # and ' is used for the php strings, because we need to include a " into the innermost
-        # string
-        uniq_no=0
-        for line in self.parsed:
-            uniq_no+=1
-            if line[0]=="li":
-                obuf.append("   'li"+`uniq_no`+"' => '"+"<a href=\""+line[1]+self.c.t.fext+"\">"+line[1]+"</a>',")
-
-            if line[0]=="caption":
-                obuf.append("   'caption"+`uniq_no`+"' => '"+line[1]+"',")
-
-        obuf.append(");")
-        obuf.append("?>")
-                    
-        return obuf
-
     def print_tex(self):
 
         obuf=[]
@@ -1234,6 +1284,11 @@ class ContentsPrinter(BasePrinter):
     def write_the_file(self):
 
         if self.c.t.basetype=='php' or self.c.t.basetype=='html':
+            # Print the menu first, as the html target will need to
+            # include it immidiatly
+            menu=self.c.t.print_menu(self.parsed)
+            self.writelines(os.path.join(self.subdir,'contentsmenu'+self.c.t.fext),menu)
+
             rststr=self.print_rst()
             webstr=call_rst(rststr,self.c.t.basetype)
             buf = rst_postprocess(webstr,self.c.t.basetype)
@@ -1241,8 +1296,6 @@ class ContentsPrinter(BasePrinter):
             
             self.writelines(os.path.join(self.subdir,'index'+self.c.t.fext),buf)
             
-            menu=self.print_menu()
-            self.writelines(os.path.join(self.subdir,'contentsmenu'+self.c.t.fext),menu)
 
         if self.c.t.basetype=='tex':
             obuf=self.print_tex()
@@ -1621,32 +1674,16 @@ def find_indent(line):
         ii=ii+1
     return ii
 
-def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
-
-    # Hardcoded for now
-    plotengine='matlab'
-
-    tmpdir=os.path.join(outputdir,projectname+'-tmp')
-    safe_mkdir(tmpdir)
+def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
     
-    # Empty the tmp directory for safety
-    rmrf(tmpdir)
-
-    #conffile=projectdir+'mat2doc/mat2docconf.py'
-
     target=targetname
     confdir=os.path.join(projectdir,'mat2doc_new')
 
     conf=ConfContainer()
 
     # Global
-    # conf.g=globalconf
-    conf.g=GlobalConf(confdir)
-    conf.g.projectdir=projectdir
-    conf.g.confdir=confdir
-    conf.g.outputdir=outputdir # new
-    conf.g.plotengine=plotengine
-    conf.g.tmpdir=tmpdir
+    conf.g=GlobalConf(confdir,projectname,projectdir)
+
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
 
     # Target
@@ -1662,13 +1699,10 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
     if target=='mat':
         conf.t=MatConf(conf.g)
         
-    outputtargetdir=os.path.join(outputdir,projectname+'-'+targetname)
-    conf.t.dir=outputtargetdir
+    #outputtargetdir=os.path.join(conf.g.outputdir,projectname+'-'+targetname)
+    #conf.t.dir=outputtargetdir
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
-    conf.t.codedir=os.path.join(outputdir,projectname+'-mat')
-
-    print conf.t.indexfiles
 
     safe_mkdir(conf.t.dir)
 
@@ -1686,7 +1720,7 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
         conf.t.footer=''
 
     # Copy the startup.m file to the temporary directory
-    shutil.copy(os.path.join(confdir,'startup.m'),tmpdir)
+    shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)
     
     if conf.t.basetype=='php' or conf.t.basetype=='tex' or conf.t.basetype=='html':
 
@@ -1744,9 +1778,18 @@ def printdoc(projectname,projectdir,outputdir,targetname,rebuildmode='auto'):
                 P=matfile_factory(conf,fname)
                 P.write_the_file()
 
+        # Post-stuff, copy the include directory
+        targetinc=os.path.join(conf.t.dir,'include')
+        rmrf(targetinc)
+        #os.rmdir(targetinc)
+        shutil.copytree(os.path.join(confdir,conf.t.basetype,'include'),targetinc)
+        
+
+        
+
     if conf.t.basetype=='mat':
           
-        matExport(projectdir,outputtargetdir)
+        matExport(projectdir,conf.t.dir)
 
         for root, dirs, files in os.walk(conf.t.dir, topdown=False):
             # Walk through the .m files
@@ -1808,17 +1851,7 @@ args = parser.parse_args()
 # Locate the mat2doc configuration directory
 projectname,projectdir,confdir=findMat2docDir(args.filename)
 
-# Absolute path to the output directory, hardcoded for now
-outputdir=os.path.abspath(os.path.expanduser('~/newpublish'))
-
-print confdir
-print projectdir
-print outputdir
-print args.target
-print projectname
-print detectVersionControl(projectdir)
-
-printdoc(projectname,projectdir,outputdir,args.target,rebuildmode='auto')
+printdoc(projectname,projectdir,args.target,rebuildmode='auto')
 
 
 
