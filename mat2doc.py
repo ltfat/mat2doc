@@ -43,6 +43,13 @@ def safe_mkdir(dir):
     except OSError:
         pass
 
+# Remove directory without an error if it does not exist
+def safe_rmdir(dir):
+    try:
+        os.rmdir(dir)
+    except OSError:
+        pass
+
 # rm -Rf
 # Does not remove the directory itself
 def rmrf(s):
@@ -94,7 +101,7 @@ def findMat2docDir(searchdir):
         (head,tail)=os.path.split(head)
 
     while 1:
-        s=os.path.join(head,'mat2doc_new')
+        s=os.path.join(head,'mat2doc')
         if os.path.isdir(s):
             # Found it
             break
@@ -146,7 +153,7 @@ def matExport(projectdir,outputtargetdir):
         gitStageExport(projectdir,outputtargetdir)
 
     # Remove the mat2doc directory that just got copied/exported
-    s=os.path.join(outputtargetdir,'mat2doc_new')
+    s=os.path.join(outputtargetdir,'mat2doc')
     rmrf(s)
     os.rmdir(s)
 
@@ -162,8 +169,13 @@ def safewrite(filename,buf):
 
     #f.write(unicode(line+'\n','latin-1'))
             
-    f=codecs.open(filename,'w',encoding="utf-8")
-    #f=file(filename,'r')
+    # Extra characters seems to be produced when writing the empty
+    # string using the utf-8 encoding
+    if buf=='':
+        f=file(filename,'w')
+    else:
+        f=codecs.open(filename,'w',encoding="utf-8")
+
     f.write(buf)
     f.close()
 
@@ -409,7 +421,7 @@ class PhpConf(WebConf):
 
         includedir=os.path.join(backdir,caller.c.t.includedir)
 
-        phpvars = caller.print_variables()
+        phpvars = caller.print_variables_php()
 
         maincontents=map(lambda x:x.replace("'","\\'"),maincontents)
 
@@ -476,11 +488,10 @@ class HtmlConf(WebConf):
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
-        backdir=''
+        # Generate the basedir link
+        basedir=''
         if len(caller.subdir)>0:
-            backdir='../'
-
-        includedir=os.path.join(backdir,caller.c.t.includedir)
+            basedir='../'
 
         # Opening of the html-file
         obuf=[' ']
@@ -488,10 +499,23 @@ class HtmlConf(WebConf):
         # Load the menu from a file, it was previously written there by the ContentsPrinter
         menu=saferead(os.path.join(self.dir,caller.subdir,'contentsmenu'+self.fext))
         
+        # Generate see-also
+        seealso = caller.print_variables_html()
+
+        # Generate view switcher
+        switchview=''
+        if doctype==1:
+            switchview='<div id="menutitle"><a href="'+caller.fname+'_code'+self.fext+'">View the code</a></div>\n'
+        if doctype==2:
+            switchview='<div id="menutitle"><a href="'+caller.fname+self.fext+'">View the help</a></div>\n'
+
+
         content='\n'.join(maincontents)
         obuf.append(self.template.format(TITLE=caller.title,
-                                         INCLUDEDIR=includedir,
+                                         BASEDIR=basedir,
                                          CONTENT=content,
+                                         SEEALSO=seealso,
+                                         SWITCHVIEW=switchview,
                                          KEYWORDS='',
                                          MENU=menu,
 ))
@@ -646,12 +670,11 @@ class ExecPrinter(BasePrinter):
         out['body'].append('.. default-role:: literal')
         out['body'].append('')
 
-        # Append the internal reference lookup for this project
-        out['body'].append('.. include:: '+os.path.join(self.c.g.confdir,'ref-internal.txt'))
-
-        # Append the lookups for other projects        
-        for filename in self.c.g.otherrefs:
-            out['body'].append('.. include:: '+os.path.join(self.c.g.confdir,filename))
+        # Append the reference lookups for this project
+        files=os.listdir(self.c.t.confdir)
+        files=filter(lambda x: x[:4]=='ref-' and x[-4:]=='.txt',files)
+        for filename in files:
+            out['body'].append('.. include:: '+os.path.join(self.c.t.confdir,filename))
 
         out['body'].append('')
 
@@ -784,8 +807,11 @@ class ExecPrinter(BasePrinter):
                 # Execute the code
                 (outbuf,nfigs)=execplot(self.c.g.plotengine,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
 
+                outbuf=saferead(outputprefix+'_output').strip()
+
                 # Append the result, if there is any
-                if len(outbuf)>0:
+                if not outbuf=='':
+                    outbuf=outbuf.split('\n')
                     out['body'].append('*This code produces the following output*::')
                     out['body'].append('')
                     for outline in outbuf:
@@ -862,9 +888,9 @@ class ExecPrinter(BasePrinter):
  
         maincontents=[]
     
-        maincontents.append(self.c.t.hb+self.parsed['name']+' - '+self.parsed['description']+self.c.t.he)
+        maincontents.append('<h1 class="title">'+self.parsed['name']+' - '+self.parsed['description']+'</h1>')
 
-        maincontents.append(self.c.t.hb+'Program code:'+self.c.t.he)
+        maincontents.append('<h2>Program code:</h2>')
 
         maincontents.extend(highlightbuf.split('\n'))
 
@@ -934,12 +960,6 @@ class ExecPrinter(BasePrinter):
 
 
         buf = rst_postprocess(buf,self.c.t.basetype)
-
-        if 0: #self.c.t.basetype=='tex':
-            if self.fname=='dwilt':
-                print buf
-                sys.exit()
-
             
         obuf.extend(buf)        
 
@@ -981,7 +1001,7 @@ class ExecPrinter(BasePrinter):
             self.writelines(self.fullname+self.c.t.fext,buf)
         
 
-    def print_variables(self):
+    def print_variables_php(self):
         # Convention used in this routine
         #   '  is the string delimiter in Python
         #   "  is the string delimiter in php
@@ -1013,6 +1033,18 @@ class ExecPrinter(BasePrinter):
         
         return obuf
 
+    def print_variables_html(self):
+        seealso=''
+        seealsolist=self.parsed.get('seealso',[])
+        if len(seealsolist)>0:
+            seealso+='<div id="menutitle">See also:</div>\n'
+
+            seealso+='<ul>\n'
+            for see in seealsolist:
+                seealso+='<li><a href="'+os.path.join(self.c.t.urlbase,self.c.lookupsubdir[see],see+self.c.t.fext)+'">'+see+'</a></li>\n'
+            seealso+='</ul>\n'
+
+        return seealso
 
         
 
@@ -1047,6 +1079,7 @@ class ExamplePrinter(ExecPrinter):
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
 
+        outbuf=safereadlines(outputprefix+'_output')
         
         # Go through the code and fill in the correct filenames
         counter = 1
@@ -1105,6 +1138,7 @@ class ExamplePrinter(ExecPrinter):
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
 
+        outbuf=safereadlines(outputprefix+'_output')
         
         obuf.append('\\subsubsection*{Output}')
             
@@ -1162,7 +1196,7 @@ class ContentsPrinter(BasePrinter):
         self.parsed=obuf
 
 
-    def print_html(self):
+    def old_print_html(self):
 
         maincontents=[]
 
@@ -1199,8 +1233,11 @@ class ContentsPrinter(BasePrinter):
 
         maincontents=[]
 
-        # Append the internal reference lookup for this project
-        maincontents.append('.. include:: '+os.path.join(self.c.g.confdir,'ref-internal.txt'))
+        # Append the reference lookups for this project
+        files=os.listdir(self.c.t.confdir)
+        files=filter(lambda x: x[:4]=='ref-' and x[-4:]=='.txt',files)
+        for filename in files:
+            out['body'].append('.. include:: '+os.path.join(self.c.t.confdir,filename))
 
         maincontents.append(self.title)
         maincontents.append('='*len(self.title))
@@ -1238,12 +1275,6 @@ class ContentsPrinter(BasePrinter):
                 maincontents.append('-'*len(line[1]))
                 continue
 
-        if 0:
-            for line in maincontents:
-                print line
-
-            sys.exit()
-
         
         outstr=''
         for line in maincontents:
@@ -1252,7 +1283,7 @@ class ContentsPrinter(BasePrinter):
         return outstr
 
 
-    def print_tex(self):
+    def old_print_tex(self):
 
         obuf=[]
 
@@ -1302,7 +1333,7 @@ class ContentsPrinter(BasePrinter):
             self.writelines(self.fullname+'.tex',obuf)
     
 
-    def print_variables(self):
+    def print_variables_php(self):
         # Convention used in this routine
         #   '  is the string delimiter in Python
         #   "  is the string delimiter in php
@@ -1319,6 +1350,10 @@ class ContentsPrinter(BasePrinter):
         obuf.append('$keywords = "'+self.title+'";')
 
         return obuf
+
+    def print_variables_html(self):
+        seealso=''
+        return seealso
 
 
 def isblank(line):
@@ -1457,6 +1492,9 @@ for ii=1:numel(findall(0,'type','figure'))
         print output        
         raise Mat2docError('For the output %s: There was an error in the Matlab code.' % outprefix)
 
+    # Write the output to a file
+    safewrite(outprefix+'_output',output)
+
     # If string was empty, return empty list, otherwise split into lines.
     if len(output)==0:
         outbuf=[]
@@ -1465,8 +1503,11 @@ for ii=1:numel(findall(0,'type','figure'))
 
     # Find the number of figures
     p=os.listdir(fullpath)
-    # Match only the beginning of the name, to avoid sgram maching resgram etc.
-    nfigs=len(filter(lambda x: x[0:len(funname)]==funname,p))
+    # Match only the beginning of the name, to avoid sgram maching
+    # resgram etc.  Heuristic: The number of figures is the number of
+    # files mathcing the name minus 1, because one of them is the
+    # _output file
+    nfigs=len(filter(lambda x: x[0:len(funname)]==funname,p))-1
 
     print '  Created %i plot(s)' % nfigs
 
@@ -1677,7 +1718,7 @@ def find_indent(line):
 def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
     
     target=targetname
-    confdir=os.path.join(projectdir,'mat2doc_new')
+    confdir=os.path.join(projectdir,'mat2doc')
 
     conf=ConfContainer()
 
@@ -1699,8 +1740,6 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
     if target=='mat':
         conf.t=MatConf(conf.g)
         
-    #outputtargetdir=os.path.join(conf.g.outputdir,projectname+'-'+targetname)
-    #conf.t.dir=outputtargetdir
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
 
@@ -1748,7 +1787,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
         conf.lookupsubdir=lookupsubdir
 
         print "Writing internal refs"
-        f=open(os.path.join(conf.g.confdir,'ref-internal.txt'),'w')
+        f=open(os.path.join(conf.t.confdir,'ref-'+conf.g.projectname+'.txt'),'w')
 
         for funname in lookupsubdir.keys():
             f.write('.. |'+funname+'| replace:: `'+funname+'`\n')
@@ -1764,7 +1803,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
         for fname in conf.t.indexfiles:
             P=ContentsPrinter(conf,fname)
             if do_rebuild_file(os.path.join(conf.g.projectdir,fname+'.m'),
-                               os.path.join(conf.t.dir,fname+fileext),
+                               os.path.join(conf.t.dir,os.path.dirname(fname),'index'+fileext),
                                rebuildmode):
                 P.write_the_file()
 
@@ -1779,12 +1818,12 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
                 P.write_the_file()
 
         # Post-stuff, copy the include directory
-        targetinc=os.path.join(conf.t.dir,'include')
-        rmrf(targetinc)
-        #os.rmdir(targetinc)
-        shutil.copytree(os.path.join(confdir,conf.t.basetype,'include'),targetinc)
+        if conf.t.basetype=='html':
+            targetinc=os.path.join(conf.t.dir,'include')
+            rmrf(targetinc)
+            safe_rmdir(targetinc)
+            shutil.copytree(os.path.join(confdir,conf.t.basetype,'include'),targetinc)
         
-
         
 
     if conf.t.basetype=='mat':
