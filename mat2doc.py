@@ -183,6 +183,10 @@ def safereadlines(filename):
     buf=saferead(filename)
     linebuf=buf.split('\n')
 
+    # String-splitting an empty string generates an array with a single element
+    if linebuf==['']:
+        linebuf=[]
+
     return linebuf
     
 def safewritelines(filename,buf):
@@ -805,13 +809,10 @@ class ExecPrinter(BasePrinter):
                 outputprefix=os.path.join(self.c.t.dir,self.fullname+'_'+`exec_n`)
 
                 # Execute the code
-                (outbuf,nfigs)=execplot(self.c.g.plotengine,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
-
-                outbuf=saferead(outputprefix+'_output').strip()
+                (outbuf,nfigs)=execplot(self.c.g.plotengine,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
 
                 # Append the result, if there is any
-                if not outbuf=='':
-                    outbuf=outbuf.split('\n')
+                if len(outbuf)>0:
                     out['body'].append('*This code produces the following output*::')
                     out['body'].append('')
                     for outline in outbuf:
@@ -1077,9 +1078,7 @@ class ExamplePrinter(ExecPrinter):
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
-
-        outbuf=safereadlines(outputprefix+'_output')
+                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
         
         # Go through the code and fill in the correct filenames
         counter = 1
@@ -1136,9 +1135,7 @@ class ExamplePrinter(ExecPrinter):
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir)
-
-        outbuf=safereadlines(outputprefix+'_output')
+                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
         
         obuf.append('\\subsubsection*{Output}')
             
@@ -1237,7 +1234,7 @@ class ContentsPrinter(BasePrinter):
         files=os.listdir(self.c.t.confdir)
         files=filter(lambda x: x[:4]=='ref-' and x[-4:]=='.txt',files)
         for filename in files:
-            out['body'].append('.. include:: '+os.path.join(self.c.t.confdir,filename))
+            maincontents.append('.. include:: '+os.path.join(self.c.t.confdir,filename))
 
         maincontents.append(self.title)
         maincontents.append('='*len(self.title))
@@ -1405,7 +1402,7 @@ def clean_tex(line):
     return line
 
 
-def execplot(plotengine,buf,outprefix,ptype,tmpdir):
+def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
 
     tmpfile='plotexec'
     tmpname=os.path.join(tmpdir,tmpfile+'.m')
@@ -1416,90 +1413,105 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir):
     printtype={'png':'-dpng',
                'eps':'-depsc'}[ptype]
 
-    # Clear old figures
-    if os.path.exists(fullpath):
-        p=os.listdir(fullpath)
-        # Match only the beginning of the name, to avoid sgram maching resgram etc.
-        oldfiles=filter(lambda x: x[0:len(funname)]==funname,p)
-        for fname in oldfiles:
-            os.remove(os.path.join(fullpath, fname))
+    if do_it:
+        # Clear old figures. We *must* do this, as we cannot tell if
+        # the number of figures has changed, and we would run the risk
+        # of including old figures
+        if os.path.exists(fullpath):
+            p=os.listdir(fullpath)
+            # Match only the beginning of the name, to avoid sgram maching resgram etc.
+            oldfiles=filter(lambda x: x[0:len(funname)]==funname,p)
+            for fname in oldfiles:
+                os.remove(os.path.join(fullpath, fname))
+        else:
+            safe_mkdir(fullpath)
+
+        obuf=u''
+
+        obuf+='startup;\n'
+
+        obuf+="disp('MARKER');\n"
+
+        obuf+="""
+    set(0, 'DefaultFigureVisible', 'off');
+    %set(0, 'DefaultAxesVisible', 'off');
+    """
+
+        # Matlab does not terminate if there is an error in the code, so
+        # we use a try-catch statment to capture the error an exit cleanly.
+        obuf+="try\n"
+
+        for line in buf:
+            obuf+=line+'\n'
+
+        obuf+="""
+
+    for ii=1:numel(findall(0,'type','figure'))
+      figure(ii);
+      %X=get(gcf,'PaperPosition');
+      %set(gcf,'PaperPosition',[X(1) X(2) .7*X(3) .7*X(4)]);
+    """
+        # Matlab does not support changing the resolution (-r300) when
+        # printing to png in nodisplay mode.
+        obuf+="print(['"+outprefix+"_',num2str(ii),'."+ptype+"'],'"+printtype+"')\n"
+        obuf+="end;\n"
+
+        obuf+="catch err\ndbstack\nerr.message\ndisp('ERROR IN THE CODE');end;"
+
+        # Matlab needs an explicit 'exit' statement, otherwise the interpreter
+        # hangs around.
+        if plotengine=='matlab':
+            obuf+='pause(1);\n'
+            obuf+='exit\n'
+
+        safewrite(tmpname,obuf)
+
+        if plotengine=='octave':
+           # -q suppresses the Octave startup message.
+           s='octave -q '+tmpname
+        else:
+           s='matlab -nodesktop -nodisplay -r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
+
+        print '  Producing '+outprefix+' using '+plotengine
+
+        try:
+            output=check_output(s,shell=True,stderr=PIPE)
+        except CalledProcessError as s: 
+            print '  WARNING: Exit code from Matlab',s.returncode
+            output=s.output
+
+        pos=output.find('MARKER')
+        if pos<0:
+            raise Mat2docError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
+
+        # Remove everything until and including the marker
+        output=output[pos+7:].strip()
+
+        if 'ERROR IN THE CODE' in output:
+            print '--------- Matlab code error ----------------'
+            print output        
+            raise Mat2docError('For the output %s: There was an error in the Matlab code.' % outprefix)
+
+        output=output.strip()
+
+        # Write the output to a file
+        safewrite(outprefix+'_output',output)
+
+        # If string was empty, return empty list, otherwise split into lines.
+        if len(output)==0:
+            outbuf=[]
+        else:
+            outbuf=output.split('\n')
     else:
-        safe_mkdir(fullpath)
+        # Not do_it
+        outbuf=safereadlines(outprefix+'_output')
 
-    obuf=u''
-           
-    obuf+='startup;\n'
 
-    obuf+="disp('MARKER');\n"
+    # Sometimes Matlab prints the prompt on the last line, it ends
+    # with a ">" sign, which should otherwise never terminate the output.
+    if (len(outbuf)>0) and (outbuf[-1][-1]=='>'):
+        outbuf.pop()
 
-    obuf+="""
-set(0, 'DefaultFigureVisible', 'off');
-%set(0, 'DefaultAxesVisible', 'off');
-"""
-    
-    # Matlab does not terminate if there is an error in the code, so
-    # we use a try-catch statment to capture the error an exit cleanly.
-    obuf+="try\n"
-
-    for line in buf:
-        obuf+=line+'\n'
-
-    obuf+="""
-
-for ii=1:numel(findall(0,'type','figure'))
-  figure(ii);
-  %X=get(gcf,'PaperPosition');
-  %set(gcf,'PaperPosition',[X(1) X(2) .7*X(3) .7*X(4)]);
-"""
-    # Matlab does not support changing the resolution (-r300) when
-    # printing to png in nodisplay mode.
-    obuf+="print(['"+outprefix+"_',num2str(ii),'."+ptype+"'],'"+printtype+"')\n"
-    obuf+="end;\n"
-
-    obuf+="catch err\ndbstack\nerr.message\ndisp('ERROR IN THE CODE');end;"
-
-    # Matlab needs an explicit 'exit' statement, otherwise the interpreter
-    # hangs around.
-    if plotengine=='matlab':
-	obuf+='pause(1);\n'
-	obuf+='exit\n'
-
-    safewrite(tmpname,obuf)
-
-    if plotengine=='octave':
-       # -q suppresses the Octave startup message.
-       s='octave -q '+tmpname
-    else:
-       s='matlab -nodesktop -nodisplay -r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
-
-    print '  Producing '+outprefix+' using '+plotengine
-
-    try:
-        output=check_output(s,shell=True,stderr=PIPE)
-    except CalledProcessError as s: 
-        print '  WARNING: Exit code from Matlab',s.returncode
-        output=s.output
-
-    pos=output.find('MARKER')
-    if pos<0:
-        raise Mat2docError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
-
-    # Remove everything until and including the marker
-    output=output[pos+7:].strip()
-
-    if 'ERROR IN THE CODE' in output:
-        print '--------- Matlab code error ----------------'
-        print output        
-        raise Mat2docError('For the output %s: There was an error in the Matlab code.' % outprefix)
-
-    # Write the output to a file
-    safewrite(outprefix+'_output',output)
-
-    # If string was empty, return empty list, otherwise split into lines.
-    if len(output)==0:
-        outbuf=[]
-    else:
-        outbuf=output.split('\n')
 
     # Find the number of figures
     p=os.listdir(fullpath)
@@ -1509,12 +1521,11 @@ for ii=1:numel(findall(0,'type','figure'))
     # _output file
     nfigs=len(filter(lambda x: x[0:len(funname)]==funname,p))-1
 
-    print '  Created %i plot(s)' % nfigs
+    if do_it:
+        print '  Created %i plot(s)' % nfigs
+    else:
+        print '  Found %i plot(s)' % nfigs
 
-    # Sometimes Matlab prints the prompt on the last line, it ends
-    # with a ">" sign, which should otherwise never terminate the output.
-    if (len(outbuf)>0) and (outbuf[-1][-1]=='>'):
-        outbuf.pop()
 
     return (outbuf,nfigs)
 
@@ -1715,8 +1726,8 @@ def find_indent(line):
         ii=ii+1
     return ii
 
-def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
-    
+def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=True):
+
     target=targetname
     confdir=os.path.join(projectdir,'mat2doc')
 
@@ -1726,6 +1737,8 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto'):
     conf.g=GlobalConf(confdir,projectname,projectdir)
 
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
+
+    conf.g.execplot=do_execplot
 
     # Target
     if target=='php':
@@ -1878,19 +1891,34 @@ parser.add_argument('target', choices=['mat','html','php','tex'],
                     help='Output target')
 parser.add_argument('filename', help='File or directory to process', default='')
 
-parser.add_argument('-a', '--auto', help='Process changed files automatically')
 parser.add_argument('-q', '--quiet',
                   action="store_false", dest='verbose', default=True,
                   help="don't print status messages to stdout")
 
+# Mutually exclusive : --execplot and --no-execplot
+group1 = parser.add_mutually_exclusive_group()
+group1.add_argument("--execplot", action="store_true", help='Process examples and demos')
+group1.add_argument("--no-execplot", action="store_true",help='Do not process examples or demos, but used cached files instead')
+
+# Mutually excluse : --auto, --cached, --rebuild
+group2 = parser.add_mutually_exclusive_group()
+group2.add_argument("--auto", dest='rebuildmode',action="store_const",const='auto',
+                    help='Process changed files automatically')
+group2.add_argument("--rebuild", dest='rebuildmode', action="store_const",const='rebuild',
+                    help='Rebuild all files')
+group2.add_argument("--cached", dest='rebuildmode', action="store_const",const='cached',
+                    help='Only use cached files, never build')
+
 args = parser.parse_args()
 
-
+rebuildmode=args.rebuildmode
+if rebuildmode==None:
+    rebuildmode='auto'
 
 # Locate the mat2doc configuration directory
 projectname,projectdir,confdir=findMat2docDir(args.filename)
 
-printdoc(projectname,projectdir,args.target,rebuildmode='auto')
+printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot)
 
 
 
