@@ -1,0 +1,560 @@
+.. |wfreq_lemarie| replace:: `wfreq_lemarie`
+.. _wfreq_lemarie: /doc/wavelets/wfreq_lemarie.php
+.. |framered| replace:: `framered`
+.. _framered: /doc/frames/framered.php
+.. |framemulappr| replace:: `framemulappr`
+.. _framemulappr: /doc/frames/framemulappr.php
+.. |filterbank| replace:: `filterbank`
+.. _filterbank: /doc/filterbank/filterbank.php
+.. |ltfattext| replace:: `ltfattext`
+.. _ltfattext: /doc/signals/ltfattext.php
+.. |dctii| replace:: `dctii`
+.. _dctii: /doc/fourier/dctii.php
+.. |frsyn| replace:: `frsyn`
+.. _frsyn: /doc/frames/frsyn.php
+.. |wfilt_sym| replace:: `wfilt_sym`
+.. _wfilt_sym: /doc/wavelets/wfilt_sym.php
+.. |erbspace| replace:: `erbspace`
+.. _erbspace: /doc/auditory/erbspace.php
+.. |dynlimit| replace:: `dynlimit`
+.. _dynlimit: /doc/sigproc/dynlimit.php
+.. |filterbankwin| replace:: `filterbankwin`
+.. _filterbankwin: /doc/filterbank/filterbankwin.php
+.. |tfplot| replace:: `tfplot`
+.. _tfplot: /doc/gabor/tfplot.php
+.. |dwiltlength| replace:: `dwiltlength`
+.. _dwiltlength: /doc/gabor/dwiltlength.php
+.. |spreadop| replace:: `spreadop`
+.. _spreadop: /doc/gabor/spreadop.php
+.. |batmask| replace:: `batmask`
+.. _batmask: /doc/signals/batmask.php
+.. |insdgtreal| replace:: `insdgtreal`
+.. _insdgtreal: /doc/nonstatgab/insdgtreal.php
+.. |dwilt2| replace:: `dwilt2`
+.. _dwilt2: /doc/gabor/dwilt2.php
+.. |pherm| replace:: `pherm`
+.. _pherm: /doc/fourier/pherm.php
+.. |zak| replace:: `zak`
+.. _zak: /doc/gabor/zak.php
+.. |iuwfbt| replace:: `iuwfbt`
+.. _iuwfbt: /doc/wavelets/iuwfbt.php
+.. |iuwpfbt| replace:: `iuwpfbt`
+.. _iuwpfbt: /doc/wavelets/iuwpfbt.php
+.. |wfilt_dtree| replace:: `wfilt_dtree`
+.. _wfilt_dtree: /doc/wavelets/wfilt_dtree.php
+.. |ifilterbank| replace:: `ifilterbank`
+.. _ifilterbank: /doc/filterbank/ifilterbank.php
+.. |magresp| replace:: `magresp`
+.. _magresp: /doc/fourier/magresp.php
+.. |wavpack2cell| replace:: `wavpack2cell`
+.. _wavpack2cell: /doc/wavelets/wavpack2cell.php
+.. |rampsignal| replace:: `rampsignal`
+.. _rampsignal: /doc/sigproc/rampsignal.php
+.. |cocktailparty| replace:: `cocktailparty`
+.. _cocktailparty: /doc/signals/cocktailparty.php
+.. |demo_gabmixdual| replace:: `demo_gabmixdual`
+.. _demo_gabmixdual: /doc/demos/demo_gabmixdual.php
+.. |filterbankresponse| replace:: `filterbankresponse`
+.. _filterbankresponse: /doc/filterbank/filterbankresponse.php
+.. |resgram| replace:: `resgram`
+.. _resgram: /doc/gabor/resgram.php
+.. |demo_dgt| replace:: `demo_dgt`
+.. _demo_dgt: /doc/demos/demo_dgt.php
+.. |izak| replace:: `izak`
+.. _izak: /doc/gabor/izak.php
+.. |psech| replace:: `psech`
+.. _psech: /doc/fourier/psech.php
+.. |wfbtremove| replace:: `wfbtremove`
+.. _wfbtremove: /doc/wavelets/wfbtremove.php
+.. |wilorth| replace:: `wilorth`
+.. _wilorth: /doc/gabor/wilorth.php
+.. |wfilt_mband| replace:: `wfilt_mband`
+.. _wfilt_mband: /doc/wavelets/wfilt_mband.php
+.. |unsdgtreal| replace:: `unsdgtreal`
+.. _unsdgtreal: /doc/nonstatgab/unsdgtreal.php
+.. |unsdgt| replace:: `unsdgt`
+.. _unsdgt: /doc/nonstatgab/unsdgt.php
+.. |rect2wil| replace:: `rect2wil`
+.. _rect2wil: /doc/gabor/rect2wil.php
+.. |psinc| replace:: `psinc`
+.. _psinc: /doc/fourier/psinc.php
+.. |audtofreq| replace:: `audtofreq`
+.. _audtofreq: /doc/auditory/audtofreq.php
+.. |filterbankrealtight| replace:: `filterbankrealtight`
+.. _filterbankrealtight: /doc/filterbank/filterbankrealtight.php
+.. |phaseunlock| replace:: `phaseunlock`
+.. _phaseunlock: /doc/gabor/phaseunlock.php
+.. |wfbt| replace:: `wfbt`
+.. _wfbt: /doc/wavelets/wfbt.php
+.. |wfilt_matlabwtwrapper| replace:: `wfilt_matlabwtwrapper`
+.. _wfilt_matlabwtwrapper: /doc/wavelets/wfilt_matlabwtwrapper.php
+.. |demo_ofdm| replace:: `demo_ofdm`
+.. _demo_ofdm: /doc/demos/demo_ofdm.php
+.. |dsti| replace:: `dsti`
+.. _dsti: /doc/fourier/dsti.php
+.. |nsgabframebounds| replace:: `nsgabframebounds`
+.. _nsgabframebounds: /doc/nonstatgab/nsgabframebounds.php
+.. |filterbankdual| replace:: `filterbankdual`
+.. _filterbankdual: /doc/filterbank/filterbankdual.php
+.. |gabdualnorm| replace:: `gabdualnorm`
+.. _gabdualnorm: /doc/gabor/gabdualnorm.php
+.. |firkaiser| replace:: `firkaiser`
+.. _firkaiser: /doc/fourier/firkaiser.php
+.. |wfbtinit| replace:: `wfbtinit`
+.. _wfbtinit: /doc/wavelets/wfbtinit.php
+.. |lichtenstein| replace:: `lichtenstein`
+.. _lichtenstein: /doc/signals/lichtenstein.php
+.. |fir2long| replace:: `fir2long`
+.. _fir2long: /doc/fourier/fir2long.php
+.. |ltfatbasepath| replace:: `ltfatbasepath`
+.. _ltfatbasepath: /doc/ltfatbasepath.php
+.. |demo_audioshrink| replace:: `demo_audioshrink`
+.. _demo_audioshrink: /doc/demos/demo_audioshrink.php
+.. |bat| replace:: `bat`
+.. _bat: /doc/signals/bat.php
+.. |ltfatsetdefaults| replace:: `ltfatsetdefaults`
+.. _ltfatsetdefaults: /doc/ltfatsetdefaults.php
+.. |wfbtmultid| replace:: `wfbtmultid`
+.. _wfbtmultid: /doc/wavelets/wfbtmultid.php
+.. |wfilt_apr| replace:: `wfilt_apr`
+.. _wfilt_apr: /doc/wavelets/wfilt_apr.php
+.. |wfilt_hden| replace:: `wfilt_hden`
+.. _wfilt_hden: /doc/wavelets/wfilt_hden.php
+.. |gabframebounds| replace:: `gabframebounds`
+.. _gabframebounds: /doc/gabor/gabframebounds.php
+.. |idgtreal| replace:: `idgtreal`
+.. _idgtreal: /doc/gabor/idgtreal.php
+.. |spreadfun| replace:: `spreadfun`
+.. _spreadfun: /doc/gabor/spreadfun.php
+.. |iwmdct| replace:: `iwmdct`
+.. _iwmdct: /doc/gabor/iwmdct.php
+.. |wfilt_optfs| replace:: `wfilt_optfs`
+.. _wfilt_optfs: /doc/wavelets/wfilt_optfs.php
+.. |audspacebw| replace:: `audspacebw`
+.. _audspacebw: /doc/auditory/audspacebw.php
+.. |pfilt| replace:: `pfilt`
+.. _pfilt: /doc/fourier/pfilt.php
+.. |spreadadj| replace:: `spreadadj`
+.. _spreadadj: /doc/gabor/spreadadj.php
+.. |plotdwilt| replace:: `plotdwilt`
+.. _plotdwilt: /doc/gabor/plotdwilt.php
+.. |framebounds| replace:: `framebounds`
+.. _framebounds: /doc/frames/framebounds.php
+.. |wfilt_dgrid| replace:: `wfilt_dgrid`
+.. _wfilt_dgrid: /doc/wavelets/wfilt_dgrid.php
+.. |dctiv| replace:: `dctiv`
+.. _dctiv: /doc/fourier/dctiv.php
+.. |rms| replace:: `rms`
+.. _rms: /doc/sigproc/rms.php
+.. |nsdgtreal| replace:: `nsdgtreal`
+.. _nsdgtreal: /doc/nonstatgab/nsdgtreal.php
+.. |erbspacebw| replace:: `erbspacebw`
+.. _erbspacebw: /doc/auditory/erbspacebw.php
+.. |idft| replace:: `idft`
+.. _idft: /doc/fourier/idft.php
+.. |dgt2| replace:: `dgt2`
+.. _dgt2: /doc/gabor/dgt2.php
+.. |frame| replace:: `frame`
+.. _frame: /doc/frames/frame.php
+.. |frsyniter| replace:: `frsyniter`
+.. _frsyniter: /doc/frames/frsyniter.php
+.. |demo_audscales| replace:: `demo_audscales`
+.. _demo_audscales: /doc/demos/demo_audscales.php
+.. |rangeexpand| replace:: `rangeexpand`
+.. _rangeexpand: /doc/auditory/rangeexpand.php
+.. |wfilt_db| replace:: `wfilt_db`
+.. _wfilt_db: /doc/wavelets/wfilt_db.php
+.. |noise| replace:: `noise`
+.. _noise: /doc/signals/noise.php
+.. |expwave| replace:: `expwave`
+.. _expwave: /doc/fourier/expwave.php
+.. |pderiv| replace:: `pderiv`
+.. _pderiv: /doc/fourier/pderiv.php
+.. |framematrix| replace:: `framematrix`
+.. _framematrix: /doc/frames/framematrix.php
+.. |demo_pgauss| replace:: `demo_pgauss`
+.. _demo_pgauss: /doc/demos/demo_pgauss.php
+.. |uwfbt| replace:: `uwfbt`
+.. _uwfbt: /doc/wavelets/uwfbt.php
+.. |framepair| replace:: `framepair`
+.. _framepair: /doc/frames/framepair.php
+.. |nsdgt| replace:: `nsdgt`
+.. _nsdgt: /doc/nonstatgab/nsdgt.php
+.. |prect| replace:: `prect`
+.. _prect: /doc/fourier/prect.php
+.. |fftresample| replace:: `fftresample`
+.. _fftresample: /doc/fourier/fftresample.php
+.. |demo_phaseplot| replace:: `demo_phaseplot`
+.. _demo_phaseplot: /doc/demos/demo_phaseplot.php
+.. |ltfatstart| replace:: `ltfatstart`
+.. _ltfatstart: /doc/ltfatstart.php
+.. |gaindb| replace:: `gaindb`
+.. _gaindb: /doc/sigproc/gaindb.php
+.. |fwtinit| replace:: `fwtinit`
+.. _fwtinit: /doc/wavelets/fwtinit.php
+.. |framecoef2native| replace:: `framecoef2native`
+.. _framecoef2native: /doc/frames/framecoef2native.php
+.. |dcti| replace:: `dcti`
+.. _dcti: /doc/fourier/dcti.php
+.. |ltfatlogo| replace:: `ltfatlogo`
+.. _ltfatlogo: /doc/signals/ltfatlogo.php
+.. |demo_nsdgt| replace:: `demo_nsdgt`
+.. _demo_nsdgt: /doc/demos/demo_nsdgt.php
+.. |nextfastfft| replace:: `nextfastfft`
+.. _nextfastfft: /doc/fourier/nextfastfft.php
+.. |largestn| replace:: `largestn`
+.. _largestn: /doc/sigproc/largestn.php
+.. |dgtlength| replace:: `dgtlength`
+.. _dgtlength: /doc/gabor/dgtlength.php
+.. |erbtofreq| replace:: `erbtofreq`
+.. _erbtofreq: /doc/auditory/erbtofreq.php
+.. |spreadeigs| replace:: `spreadeigs`
+.. _spreadeigs: /doc/gabor/spreadeigs.php
+.. |wavfun| replace:: `wavfun`
+.. _wavfun: /doc/wavelets/wavfun.php
+.. |instfreqplot| replace:: `instfreqplot`
+.. _instfreqplot: /doc/gabor/instfreqplot.php
+.. |crestfactor| replace:: `crestfactor`
+.. _crestfactor: /doc/sigproc/crestfactor.php
+.. |convolve| replace:: `convolve`
+.. _convolve: /doc/fourier/convolve.php
+.. |dwilt| replace:: `dwilt`
+.. _dwilt: /doc/gabor/dwilt.php
+.. |ltfathelp| replace:: `ltfathelp`
+.. _ltfathelp: /doc/ltfathelp.php
+.. |iqam4| replace:: `iqam4`
+.. _iqam4: /doc/sigproc/iqam4.php
+.. |cameraman| replace:: `cameraman`
+.. _cameraman: /doc/signals/cameraman.php
+.. |frana| replace:: `frana`
+.. _frana: /doc/frames/frana.php
+.. |dstiv| replace:: `dstiv`
+.. _dstiv: /doc/fourier/dstiv.php
+.. |framemuladj| replace:: `framemuladj`
+.. _framemuladj: /doc/frames/framemuladj.php
+.. |nsgabdual| replace:: `nsgabdual`
+.. _nsgabdual: /doc/nonstatgab/nsgabdual.php
+.. |tfmat| replace:: `tfmat`
+.. _tfmat: /doc/gabor/tfmat.php
+.. |fftreal| replace:: `fftreal`
+.. _fftreal: /doc/fourier/fftreal.php
+.. |ifwt2| replace:: `ifwt2`
+.. _ifwt2: /doc/wavelets/ifwt2.php
+.. |gabdual| replace:: `gabdual`
+.. _gabdual: /doc/gabor/gabdual.php
+.. |scalardistribute| replace:: `scalardistribute`
+.. _scalardistribute: /doc/scalardistribute.php
+.. |matrix2latticetype| replace:: `matrix2latticetype`
+.. _matrix2latticetype: /doc/gabor/matrix2latticetype.php
+.. |framediag| replace:: `framediag`
+.. _framediag: /doc/frames/framediag.php
+.. |uquant| replace:: `uquant`
+.. _uquant: /doc/sigproc/uquant.php
+.. |dgtreal| replace:: `dgtreal`
+.. _dgtreal: /doc/gabor/dgtreal.php
+.. |greasy| replace:: `greasy`
+.. _greasy: /doc/signals/greasy.php
+.. |gabmuleigs| replace:: `gabmuleigs`
+.. _gabmuleigs: /doc/gabor/gabmuleigs.php
+.. |plotnsdgtreal| replace:: `plotnsdgtreal`
+.. _plotnsdgtreal: /doc/nonstatgab/plotnsdgtreal.php
+.. |ltfatarghelper| replace:: `ltfatarghelper`
+.. _ltfatarghelper: /doc/ltfatarghelper.php
+.. |sgram| replace:: `sgram`
+.. _sgram: /doc/gabor/sgram.php
+.. |peven| replace:: `peven`
+.. _peven: /doc/fourier/peven.php
+.. |franagrouplasso| replace:: `franagrouplasso`
+.. _franagrouplasso: /doc/frames/franagrouplasso.php
+.. |plotfftreal| replace:: `plotfftreal`
+.. _plotfftreal: /doc/fourier/plotfftreal.php
+.. |gabreassign| replace:: `gabreassign`
+.. _gabreassign: /doc/gabor/gabreassign.php
+.. |rangecompress| replace:: `rangecompress`
+.. _rangecompress: /doc/auditory/rangecompress.php
+.. |fftindex| replace:: `fftindex`
+.. _fftindex: /doc/fourier/fftindex.php
+.. |wilframediag| replace:: `wilframediag`
+.. _wilframediag: /doc/gabor/wilframediag.php
+.. |long2fir| replace:: `long2fir`
+.. _long2fir: /doc/fourier/long2fir.php
+.. |fwt| replace:: `fwt`
+.. _fwt: /doc/wavelets/fwt.php
+.. |modcent| replace:: `modcent`
+.. _modcent: /doc/fourier/modcent.php
+.. |gabtight| replace:: `gabtight`
+.. _gabtight: /doc/gabor/gabtight.php
+.. |tconv| replace:: `tconv`
+.. _tconv: /doc/gabor/tconv.php
+.. |filterbanktight| replace:: `filterbanktight`
+.. _filterbanktight: /doc/filterbank/filterbanktight.php
+.. |isoctave| replace:: `isoctave`
+.. _isoctave: /doc/isoctave.php
+.. |franaiter| replace:: `franaiter`
+.. _franaiter: /doc/frames/franaiter.php
+.. |dsft| replace:: `dsft`
+.. _dsft: /doc/gabor/dsft.php
+.. |iufwt| replace:: `iufwt`
+.. _iufwt: /doc/wavelets/iufwt.php
+.. |ufilterbank| replace:: `ufilterbank`
+.. _ufilterbank: /doc/filterbank/ufilterbank.php
+.. |gabphasegrad| replace:: `gabphasegrad`
+.. _gabphasegrad: /doc/gabor/gabphasegrad.php
+.. |gabmulappr| replace:: `gabmulappr`
+.. _gabmulappr: /doc/gabor/gabmulappr.php
+.. |filterbankrealdual| replace:: `filterbankrealdual`
+.. _filterbankrealdual: /doc/filterbank/filterbankrealdual.php
+.. |ltfatgetdefaults| replace:: `ltfatgetdefaults`
+.. _ltfatgetdefaults: /doc/ltfatgetdefaults.php
+.. |wfilt_algmband| replace:: `wfilt_algmband`
+.. _wfilt_algmband: /doc/wavelets/wfilt_algmband.php
+.. |symphase| replace:: `symphase`
+.. _symphase: /doc/gabor/symphase.php
+.. |gabmul| replace:: `gabmul`
+.. _gabmul: /doc/gabor/gabmul.php
+.. |spreadinv| replace:: `spreadinv`
+.. _spreadinv: /doc/gabor/spreadinv.php
+.. |linus| replace:: `linus`
+.. _linus: /doc/signals/linus.php
+.. |traindoppler| replace:: `traindoppler`
+.. _traindoppler: /doc/signals/traindoppler.php
+.. |idgt| replace:: `idgt`
+.. _idgt: /doc/gabor/idgt.php
+.. |pbspline| replace:: `pbspline`
+.. _pbspline: /doc/fourier/pbspline.php
+.. |gabimagepars| replace:: `gabimagepars`
+.. _gabimagepars: /doc/gabor/gabimagepars.php
+.. |plotdgt| replace:: `plotdgt`
+.. _plotdgt: /doc/gabor/plotdgt.php
+.. |demo_imagecompression| replace:: `demo_imagecompression`
+.. _demo_imagecompression: /doc/demos/demo_imagecompression.php
+.. |framelength| replace:: `framelength`
+.. _framelength: /doc/frames/framelength.php
+.. |demo_gabfir| replace:: `demo_gabfir`
+.. _demo_gabfir: /doc/demos/demo_gabfir.php
+.. |demo_pbspline| replace:: `demo_pbspline`
+.. _demo_pbspline: /doc/demos/demo_pbspline.php
+.. |dft| replace:: `dft`
+.. _dft: /doc/fourier/dft.php
+.. |pxcorr| replace:: `pxcorr`
+.. _pxcorr: /doc/fourier/pxcorr.php
+.. |framemuleigs| replace:: `framemuleigs`
+.. _framemuleigs: /doc/frames/framemuleigs.php
+.. |latticetype2matrix| replace:: `latticetype2matrix`
+.. _latticetype2matrix: /doc/gabor/latticetype2matrix.php
+.. |wavcell2pack| replace:: `wavcell2pack`
+.. _wavcell2pack: /doc/wavelets/wavcell2pack.php
+.. |groupthresh| replace:: `groupthresh`
+.. _groupthresh: /doc/sigproc/groupthresh.php
+.. |pheaviside| replace:: `pheaviside`
+.. _pheaviside: /doc/fourier/pheaviside.php
+.. |wmdct| replace:: `wmdct`
+.. _wmdct: /doc/gabor/wmdct.php
+.. |dstii| replace:: `dstii`
+.. _dstii: /doc/fourier/dstii.php
+.. |firwin| replace:: `firwin`
+.. _firwin: /doc/fourier/firwin.php
+.. |nsgabframediag| replace:: `nsgabframediag`
+.. _nsgabframediag: /doc/nonstatgab/nsgabframediag.php
+.. |demo_audiodenoise| replace:: `demo_audiodenoise`
+.. _demo_audiodenoise: /doc/demos/demo_audiodenoise.php
+.. |demo_gabmul| replace:: `demo_gabmul`
+.. _demo_gabmul: /doc/demos/demo_gabmul.php
+.. |dctresample| replace:: `dctresample`
+.. _dctresample: /doc/fourier/dctresample.php
+.. |plotframe| replace:: `plotframe`
+.. _plotframe: /doc/frames/plotframe.php
+.. |insdgt| replace:: `insdgt`
+.. _insdgt: /doc/nonstatgab/insdgt.php
+.. |idwilt| replace:: `idwilt`
+.. _idwilt: /doc/gabor/idwilt.php
+.. |gabprojdual| replace:: `gabprojdual`
+.. _gabprojdual: /doc/gabor/gabprojdual.php
+.. |framegram| replace:: `framegram`
+.. _framegram: /doc/frames/framegram.php
+.. |gabmixdual| replace:: `gabmixdual`
+.. _gabmixdual: /doc/gabor/gabmixdual.php
+.. |col2diag| replace:: `col2diag`
+.. _col2diag: /doc/gabor/col2diag.php
+.. |ifwt| replace:: `ifwt`
+.. _ifwt: /doc/wavelets/ifwt.php
+.. |wpbest| replace:: `wpbest`
+.. _wpbest: /doc/wavelets/wpbest.php
+.. |thresh| replace:: `thresh`
+.. _thresh: /doc/sigproc/thresh.php
+.. |ctestfun| replace:: `ctestfun`
+.. _ctestfun: /doc/signals/ctestfun.php
+.. |wfilt_lemarie| replace:: `wfilt_lemarie`
+.. _wfilt_lemarie: /doc/wavelets/wfilt_lemarie.php
+.. |ufwt| replace:: `ufwt`
+.. _ufwt: /doc/wavelets/ufwt.php
+.. |demo_nextfastfft| replace:: `demo_nextfastfft`
+.. _demo_nextfastfft: /doc/demos/demo_nextfastfft.php
+.. |gabrieszbounds| replace:: `gabrieszbounds`
+.. _gabrieszbounds: /doc/gabor/gabrieszbounds.php
+.. |iframemul| replace:: `iframemul`
+.. _iframemul: /doc/frames/iframemul.php
+.. |framedual| replace:: `framedual`
+.. _framedual: /doc/frames/framedual.php
+.. |filterbanklength| replace:: `filterbanklength`
+.. _filterbanklength: /doc/filterbank/filterbanklength.php
+.. |involute| replace:: `involute`
+.. _involute: /doc/fourier/involute.php
+.. |largestr| replace:: `largestr`
+.. _largestr: /doc/sigproc/largestr.php
+.. |s0norm| replace:: `s0norm`
+.. _s0norm: /doc/gabor/s0norm.php
+.. |wfilt_remez| replace:: `wfilt_remez`
+.. _wfilt_remez: /doc/wavelets/wfilt_remez.php
+.. |freqtoaud| replace:: `freqtoaud`
+.. _freqtoaud: /doc/auditory/freqtoaud.php
+.. |audfiltbw| replace:: `audfiltbw`
+.. _audfiltbw: /doc/auditory/audfiltbw.php
+.. |dstiii| replace:: `dstiii`
+.. _dstiii: /doc/fourier/dstiii.php
+.. |iwpfbt| replace:: `iwpfbt`
+.. _iwpfbt: /doc/wavelets/iwpfbt.php
+.. |frametf2coef| replace:: `frametf2coef`
+.. _frametf2coef: /doc/frames/frametf2coef.php
+.. |filterbankbounds| replace:: `filterbankbounds`
+.. _filterbankbounds: /doc/filterbank/filterbankbounds.php
+.. |wilbounds| replace:: `wilbounds`
+.. _wilbounds: /doc/gabor/wilbounds.php
+.. |demo_isgram| replace:: `demo_isgram`
+.. _demo_isgram: /doc/demos/demo_isgram.php
+.. |isevenfunction| replace:: `isevenfunction`
+.. _isevenfunction: /doc/fourier/isevenfunction.php
+.. |frametight| replace:: `frametight`
+.. _frametight: /doc/frames/frametight.php
+.. |dctiii| replace:: `dctiii`
+.. _dctiii: /doc/fourier/dctiii.php
+.. |fwt2| replace:: `fwt2`
+.. _fwt2: /doc/wavelets/fwt2.php
+.. |phaselock| replace:: `phaselock`
+.. _phaselock: /doc/gabor/phaselock.php
+.. |semiaudplot| replace:: `semiaudplot`
+.. _semiaudplot: /doc/auditory/semiaudplot.php
+.. |middlepad| replace:: `middlepad`
+.. _middlepad: /doc/fourier/middlepad.php
+.. |wfilt_dden| replace:: `wfilt_dden`
+.. _wfilt_dden: /doc/wavelets/wfilt_dden.php
+.. |wildual| replace:: `wildual`
+.. _wildual: /doc/gabor/wildual.php
+.. |isgram| replace:: `isgram`
+.. _isgram: /doc/gabor/isgram.php
+.. |wfilt_spline| replace:: `wfilt_spline`
+.. _wfilt_spline: /doc/wavelets/wfilt_spline.php
+.. |phaseplot| replace:: `phaseplot`
+.. _phaseplot: /doc/gabor/phaseplot.php
+.. |demo_gabmulappr| replace:: `demo_gabmulappr`
+.. _demo_gabmulappr: /doc/demos/demo_gabmulappr.php
+.. |otoclick| replace:: `otoclick`
+.. _otoclick: /doc/signals/otoclick.php
+.. |pconv| replace:: `pconv`
+.. _pconv: /doc/fourier/pconv.php
+.. |idwilt2| replace:: `idwilt2`
+.. _idwilt2: /doc/gabor/idwilt2.php
+.. |wilwin| replace:: `wilwin`
+.. _wilwin: /doc/gabor/wilwin.php
+.. |franalasso| replace:: `franalasso`
+.. _franalasso: /doc/frames/franalasso.php
+.. |wfbtput| replace:: `wfbtput`
+.. _wfbtput: /doc/wavelets/wfbtput.php
+.. |iwfbt| replace:: `iwfbt`
+.. _iwfbt: /doc/wavelets/iwfbt.php
+.. |nsgabtight| replace:: `nsgabtight`
+.. _nsgabtight: /doc/nonstatgab/nsgabtight.php
+.. |normalize| replace:: `normalize`
+.. _normalize: /doc/sigproc/normalize.php
+.. |gabwin| replace:: `gabwin`
+.. _gabwin: /doc/gabor/gabwin.php
+.. |framenative2coef| replace:: `framenative2coef`
+.. _framenative2coef: /doc/frames/framenative2coef.php
+.. |demo_audiocompression| replace:: `demo_audiocompression`
+.. _demo_audiocompression: /doc/demos/demo_audiocompression.php
+.. |filterbankrealbounds| replace:: `filterbankrealbounds`
+.. _filterbankrealbounds: /doc/filterbank/filterbankrealbounds.php
+.. |ltfatmex| replace:: `ltfatmex`
+.. _ltfatmex: /doc/ltfatmex.php
+.. |plotwmdct| replace:: `plotwmdct`
+.. _plotwmdct: /doc/gabor/plotwmdct.php
+.. |frameaccel| replace:: `frameaccel`
+.. _frameaccel: /doc/frames/frameaccel.php
+.. |rampdown| replace:: `rampdown`
+.. _rampdown: /doc/sigproc/rampdown.php
+.. |expchirp| replace:: `expchirp`
+.. _expchirp: /doc/signals/expchirp.php
+.. |shah| replace:: `shah`
+.. _shah: /doc/fourier/shah.php
+.. |wpfbt| replace:: `wpfbt`
+.. _wpfbt: /doc/wavelets/wpfbt.php
+.. |plotfilterbank| replace:: `plotfilterbank`
+.. _plotfilterbank: /doc/filterbank/plotfilterbank.php
+.. |qam4| replace:: `qam4`
+.. _qam4: /doc/sigproc/qam4.php
+.. |gspi| replace:: `gspi`
+.. _gspi: /doc/signals/gspi.php
+.. |hermbasis| replace:: `hermbasis`
+.. _hermbasis: /doc/fourier/hermbasis.php
+.. |mulaclab| replace:: `mulaclab`
+.. _mulaclab: /doc/mulaclab.php
+.. |plotnsdgt| replace:: `plotnsdgt`
+.. _plotnsdgt: /doc/nonstatgab/plotnsdgt.php
+.. |ifftreal| replace:: `ifftreal`
+.. _ifftreal: /doc/fourier/ifftreal.php
+.. |audspace| replace:: `audspace`
+.. _audspace: /doc/auditory/audspace.php
+.. |plotdgtreal| replace:: `plotdgtreal`
+.. _plotdgtreal: /doc/gabor/plotdgtreal.php
+.. |plotwavelets| replace:: `plotwavelets`
+.. _plotwavelets: /doc/wavelets/plotwavelets.php
+.. |rampup| replace:: `rampup`
+.. _rampup: /doc/sigproc/rampup.php
+.. |dgt| replace:: `dgt`
+.. _dgt: /doc/gabor/dgt.php
+.. |isgramreal| replace:: `isgramreal`
+.. _isgramreal: /doc/gabor/isgramreal.php
+.. |wfilt_maxflat| replace:: `wfilt_maxflat`
+.. _wfilt_maxflat: /doc/wavelets/wfilt_maxflat.php
+.. |wil2rect| replace:: `wil2rect`
+.. _wil2rect: /doc/gabor/wil2rect.php
+.. |plotfft| replace:: `plotfft`
+.. _plotfft: /doc/fourier/plotfft.php
+.. |filterbanklengthcoef| replace:: `filterbanklengthcoef`
+.. _filterbanklengthcoef: /doc/filterbank/filterbanklengthcoef.php
+.. |wfilt_symds| replace:: `wfilt_symds`
+.. _wfilt_symds: /doc/wavelets/wfilt_symds.php
+.. |demo_auditoryfilterbank| replace:: `demo_auditoryfilterbank`
+.. _demo_auditoryfilterbank: /doc/demos/demo_auditoryfilterbank.php
+.. |pchirp| replace:: `pchirp`
+.. _pchirp: /doc/fourier/pchirp.php
+.. |pinknoise| replace:: `pinknoise`
+.. _pinknoise: /doc/signals/pinknoise.php
+.. |framecoef2tf| replace:: `framecoef2tf`
+.. _framecoef2tf: /doc/frames/framecoef2tf.php
+.. |gammatonefir| replace:: `gammatonefir`
+.. _gammatonefir: /doc/auditory/gammatonefir.php
+.. |wmdct2| replace:: `wmdct2`
+.. _wmdct2: /doc/gabor/wmdct2.php
+.. |fwtlength| replace:: `fwtlength`
+.. _fwtlength: /doc/wavelets/fwtlength.php
+.. |podd| replace:: `podd`
+.. _podd: /doc/fourier/podd.php
+.. |gabframediag| replace:: `gabframediag`
+.. _gabframediag: /doc/gabor/gabframediag.php
+.. |freqtoerb| replace:: `freqtoerb`
+.. _freqtoerb: /doc/auditory/freqtoerb.php
+.. |frsynabs| replace:: `frsynabs`
+.. _frsynabs: /doc/frames/frsynabs.php
+.. |framelengthcoef| replace:: `framelengthcoef`
+.. _framelengthcoef: /doc/frames/framelengthcoef.php
+.. |idgt2| replace:: `idgt2`
+.. _idgt2: /doc/gabor/idgt2.php
+.. |uwpfbt| replace:: `uwpfbt`
+.. _uwpfbt: /doc/wavelets/uwpfbt.php
+.. |framemul| replace:: `framemul`
+.. _framemul: /doc/frames/framemul.php
+.. |pgauss| replace:: `pgauss`
+.. _pgauss: /doc/fourier/pgauss.php
+.. |iwmdct2| replace:: `iwmdct2`
+.. _iwmdct2: /doc/gabor/iwmdct2.php

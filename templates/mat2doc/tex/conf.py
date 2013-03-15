@@ -1,0 +1,5 @@
+fext='.tex'
+urlbase='http://ltfat.sourceforge.net/doc'
+urlext='php'
+widthstr='70ex'
+imagetype='eps'

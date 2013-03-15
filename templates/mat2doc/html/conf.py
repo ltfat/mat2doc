@@ -1,0 +1,5 @@
+fext='.html'
+urlbase='/doc'
+urlext='.html'
+widthstr=''
+imagetype='png'
