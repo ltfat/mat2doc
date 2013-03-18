@@ -354,6 +354,7 @@ class TargetConf(ConfType):
         self.codedir=os.path.join(g.outputdir,g.projectname+'-mat')
         self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
 
+        self.urlbase=self.urlbase.format(TARGETDIR=self.dir)
 
 
  # This is the class from which TeX configuration should be derived.
@@ -396,7 +397,7 @@ class WebConf(TargetConf):
     beginboxheader='<b>'
     endboxheader='</b><br>'
  
-    referenceheader='<br><br><H2>References:</H2>'
+    referenceheader='<H2>References:</H2>'
 
     # Use bibtex2html to generate html references
     def references(self,reflist,obuf,caller):
@@ -409,8 +410,6 @@ class WebConf(TargetConf):
             obuf.append(self.referenceheader)
             obuf.extend(buf)
         
-
-
 
 # This is the class from which PHP configurations should be
 # derived.
@@ -481,6 +480,7 @@ class HtmlConf(WebConf):
 
     def __init__(self,g):
         WebConf.__init__(self,g)
+        self.g=g
 
         # Read the template
         templatefile=os.path.join(self.confdir,'template.'+self.basetype)
@@ -488,7 +488,6 @@ class HtmlConf(WebConf):
             self.template=saferead(templatefile)
         else:
             raise Mat2docError('Template file %s is missing.' % templatefile)
-
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
@@ -522,6 +521,9 @@ class HtmlConf(WebConf):
                                          SWITCHVIEW=switchview,
                                          KEYWORDS='',
                                          MENU=menu,
+                                         AUTHOR=self.g.author,
+                                         VERSION=self.g.version,
+                                         YEAR=self.g.year
 ))
 
         return obuf
@@ -559,22 +561,32 @@ class HtmlConf(WebConf):
 # derived.
 class MatConf(TargetConf):
     basetype='mat'
+    fext='.m'
 
     def __init__(self,g):
         TargetConf.__init__(self,g)
 
         # Read the targe-dependant header and footer
-        headerfile=os.path.join(confdir,'header.'+self.basetype)
+        headerfile=os.path.join(self.confdir,'header'+self.fext)
         if os.path.exists(headerfile):
             self.header=saferead(headerfile)
         else:
             self.header=''
 
-        footerfile=os.path.join(confdir,'footer.'+self.basetype)
+        footerfile=os.path.join(self.confdir,'footer.'+self.fext)
         if os.path.exists(footerfile):    
             self.footer=saferead(footerfile)
         else:
             self.footer=''
+
+        self.header=self.header.format(AUTHOR=g.author,
+                             VERSION=g.version,
+                             YEAR=g.year)
+
+        self.footer=self.footer.format(AUTHOR=g.author,
+                             VERSION=g.version,
+                             YEAR=g.year)
+
 
 # -----------------  Object structure for the parser -------------------------
 
@@ -933,6 +945,10 @@ class ExecPrinter(BasePrinter):
 
         buf=call_rst(buf_to_rst,self.c.t.basetype)
 
+        # Uncomment this to print the raw reStructuredText output
+        #print buf
+        #sys.exit()
+
         # Clean up from table transformation
 
         splitidx=buf.find('XXXDescription')
@@ -983,10 +999,9 @@ class ExecPrinter(BasePrinter):
 
 
     def print_tex(self,obuf):
-
-        obuf.append('\subsection{'+self.c.t.protect(self.parsed['name'])+'}')
-
-        obuf.append(self.c.t.protect(self.parsed['description']))
+        pname=self.c.t.protect(self.parsed['name']).lower()
+        obuf.append('\subsection['+pname+']{'+pname.upper()+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pname+'}')
+    
         obuf.append('')
 
         self.print_body(obuf)
@@ -1280,7 +1295,7 @@ class ContentsPrinter(BasePrinter):
         return outstr
 
 
-    def old_print_tex(self):
+    def print_tex(self):
 
         obuf=[]
 
@@ -1753,23 +1768,11 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
     if target=='mat':
         conf.t=MatConf(conf.g)
         
+
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
 
     safe_mkdir(conf.t.dir)
-
-    # Read the targe-dependant header and footer
-    headerfile=os.path.join(confdir,'header.'+targetname)
-    if os.path.exists(headerfile):
-        conf.t.header=saferead(headerfile)
-    else:
-        conf.t.header=''
-
-    footerfile=os.path.join(confdir,'footer.'+targetname)
-    if os.path.exists(footerfile):    
-        conf.t.footer=saferead(footerfile)
-    else:
-        conf.t.footer=''
 
     # Copy the startup.m file to the temporary directory
     shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)
@@ -1802,10 +1805,20 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
         print "Writing internal refs"
         f=open(os.path.join(conf.t.confdir,'ref-'+conf.g.projectname+'.txt'),'w')
 
-        for funname in lookupsubdir.keys():
-            f.write('.. |'+funname+'| replace:: `'+funname+'`\n')
-            f.write('.. _'+funname+': '+os.path.join(conf.t.urlbase,lookupsubdir[funname],
-                    funname)+'.php\n')
+        if conf.t.basetype=='tex':
+            f.write('.. role:: linkrole(raw)\n')
+            f.write('   :format: latex\n')
+
+            for funname in lookupsubdir.keys():
+                f.write('.. |'+funname+'| replace:: :linkrole:`\\nameref{'+funname+'}`\n')
+
+        else:
+            f.write('.. role:: linkrole(raw)\n')
+            f.write('   :format: html\n')
+
+            for funname in lookupsubdir.keys():
+                tn=os.path.join(conf.t.urlbase,lookupsubdir[funname],funname)+conf.t.fext
+                f.write('.. |'+funname+'| replace:: :linkrole:`<a href="'+tn+'">'+funname+'</a>`\n')
 
         # flush the file, because we need it again very quickly
         f.flush()
