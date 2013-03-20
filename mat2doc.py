@@ -258,6 +258,7 @@ def rst_postprocess(instr,outtype):
         instr = re.sub("\\\\phantomsection","",instr)
         instr = re.sub("\\\\addcontentsline.*\n","",instr)
         instr = re.sub("\\\\newcounter{listcnt0}","\\\setcounter{listcnt0}{0}",instr)
+        instr = re.sub("\\\\label{.*?}%\n","",instr)
 
 
     buf = instr.split('\n')
@@ -286,7 +287,8 @@ def protect_tex(line):
     
     line=line.replace('[','{[}')
     line=line.replace(']','{]}')
-    line=line.replace('_','\_')
+    #line=line.replace('_','\_')
+    line=line.replace('_','\\textunderscore{}')
     line=line.replace('%','\%')
     line=line.replace('*','{*}')
     line=line.replace('^','\textasciicircum{}')
@@ -423,6 +425,10 @@ class PhpConf(WebConf):
             backdir='../'
 
         includedir=os.path.join(backdir,caller.c.t.includedir)
+        
+        # Must end with a slash
+        if not includedir[-1]=='/':
+            includedir+='/'
 
         phpvars = caller.print_variables_php()
 
@@ -430,6 +436,11 @@ class PhpConf(WebConf):
 
         # Opening of the php-file
         obuf=['<?php']
+
+        # php debugging code
+        obuf.append("ini_set('display_errors', 'On');")
+        obuf.append("error_reporting(E_ALL);")
+
         obuf.append('$path_include="'+includedir+'";')
         obuf.append('include($path_include."main.php");')
         obuf.append('$doctype='+`doctype`+';')
@@ -999,8 +1010,9 @@ class ExecPrinter(BasePrinter):
 
 
     def print_tex(self,obuf):
-        pname=self.c.t.protect(self.parsed['name']).lower()
-        obuf.append('\subsection['+pname+']{'+pname.upper()+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pname+'}')
+        pname=self.c.t.protect(self.parsed['name'])
+        pnamel=pname.lower()
+        obuf.append('\subsection['+pnamel+']{'+pname+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pnamel+'}')
     
         obuf.append('')
 
@@ -1263,7 +1275,7 @@ class ContentsPrinter(BasePrinter):
                     maincontents.append('')
                     ul_on=1
 
-                maincontents.append('  * |'+line[1]+'|_ - '+line[2])
+                maincontents.append('  * |'+line[1]+'| - '+line[2])
                 continue
 
             # Turn of list mode, we have encountered a non-list line
@@ -1666,9 +1678,9 @@ def print_matlab(conf,ifilename,ofilename):
             line=line.replace('>`_','')
 
             # Convert internal links to uppercase
-            p=re.search(' \|.*?\|_',line)
+            p=re.search(' \|.*?\|',line)
             if p:
-                line=line[0:p.start(0)+1]+line[p.start(0)+2:p.end(0)-2].upper()+line[p.end(0):]
+                line=line[0:p.start(0)+1]+line[p.start(0)+2:p.end(0)-1].upper()+line[p.end(0):]
 
             # Uppercase the function name appearing inside backticks, and remove them
             p=re.search('`.*?`',line)
