@@ -341,8 +341,12 @@ class GlobalConf(ConfType):
         safe_mkdir(self.tmpdir)
         # Empty the tmp directory for safety
         rmrf(self.tmpdir)
-    
-        
+
+        s=os.path.join(self.confdir,'ignore')
+        if os.path.exists(s):
+            self.ignorelist=safereadlines(s)
+        else:
+            self.ignorelist=[]    
 
 class TargetConf(ConfType):    
     bibstyle='abbrv'
@@ -357,6 +361,9 @@ class TargetConf(ConfType):
         self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
 
         self.urlbase=self.urlbase.format(TARGETDIR=self.dir)
+        # urlbase must always end in a slash
+        if not self.urlbase[-1]=='/':
+            self.urlbase+='/'
 
 
  # This is the class from which TeX configuration should be derived.
@@ -404,7 +411,7 @@ class WebConf(TargetConf):
     # Use bibtex2html to generate html references
     def references(self,reflist,obuf,caller):
         if len(reflist)==0:
-            print '  WARNING: Empty list of references.'
+            print '   WARNING: Empty list of references.'
         else:
 
             buf=call_bibtex2html(reflist,caller.c)
@@ -579,6 +586,7 @@ class MatConf(TargetConf):
 
         # Read the targe-dependant header and footer
         headerfile=os.path.join(self.confdir,'header'+self.fext)
+
         if os.path.exists(headerfile):
             self.header=saferead(headerfile)
         else:
@@ -669,8 +677,8 @@ class ExecPrinter(BasePrinter):
         out['name']=line[0]
 
         if out['name'].lower()<>self.fname:
-            print '  ERROR: Mis-match between function name and help text name.'
-            print '  <'+out['name'].lower()+'> <'+self.fname+'>'
+            print '   ERROR: Mis-match between function name and help text name.'
+            print '   <'+out['name'].lower()+'> <'+self.fname+'>'
             sys.exit()
 
         out['description']=space.join(line[1:]).strip()
@@ -678,11 +686,11 @@ class ExecPrinter(BasePrinter):
         self.title=out['name']+' - '+out['description']
 
         if len(out['description'])==0:
-            print '  ERROR: Discription on first line is empty.'
+            print '   ERROR: Discription on first line is empty.'
             sys.exit()
 
         if out['description'][-1]=='.':
-            print '  ERROR: Description line ends in a full stop.'
+            print '   ERROR: Description line ends in a full stop.'
             sys.exit()
 
         out['body']=[]
@@ -714,7 +722,7 @@ class ExecPrinter(BasePrinter):
             
             if len(buf[ii].strip())>1:
                 if not (buf[ii][0:3]=='   '):
-                    print 'In function %s: Line does not start with three empty spaces.' % out['name']
+                    print '   In function %s: Line does not start with three empty spaces.' % out['name']
                     sys.exit()
                 else:
                     buf[ii]=buf[ii][3:]
@@ -744,8 +752,8 @@ class ExecPrinter(BasePrinter):
                         # Similarly, then function name is always before "(" or ";"
                         usage_name=s.split('=')[-1].split('(')[0].split(';')[0].strip()
                         if usage_name<>self.fname:
-                            print '  ERROR: Mis-match between function name and usage name.'
-                            print '  <'+usage_name+'> <'+self.fname+'>'
+                            print '   ERROR: Mis-match between function name and usage name.'
+                            print '   <'+usage_name+'> <'+self.fname+'>'
                             print s
                             sys.exit()
 
@@ -1499,12 +1507,12 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
         else:
            s='matlab -nodesktop -nodisplay -r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
 
-        print '  Producing '+outprefix+' using '+plotengine
+        print '   Producing '+outprefix+' using '+plotengine
 
         try:
             output=check_output(s,shell=True,stderr=PIPE)
         except CalledProcessError as s: 
-            print '  WARNING: Exit code from Matlab',s.returncode
+            print '   WARNING: Exit code from Matlab',s.returncode
             output=s.output
 
         pos=output.find('MARKER')
@@ -1522,16 +1530,19 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
         output=output.strip()
 
         # Write the output to a file
-        safewrite(outprefix+'_output',output)
+        #safewrite(outprefix+'_output',output)
+        f=open(outprefix+'_output','w')
+        f.write(output)
+        f.close()        
 
         # If string was empty, return empty list, otherwise split into lines.
         if len(output)==0:
             outbuf=[]
         else:
             outbuf=output.split('\n')
-    else:
-        # Not do_it
-        outbuf=safereadlines(outprefix+'_output')
+
+    # Read the output previously written
+    outbuf=safereadlines(outprefix+'_output')
 
 
     # Sometimes Matlab prints the prompt on the last line, it ends
@@ -1549,9 +1560,9 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
     nfigs=len(filter(lambda x: x[0:len(funname)]==funname,p))-1
 
     if do_it:
-        print '  Created %i plot(s)' % nfigs
+        print '   Created %i plot(s)' % nfigs
     else:
-        print '  Found %i plot(s)' % nfigs
+        print '   Found %i plot(s)' % nfigs
 
 
     return (outbuf,nfigs)
@@ -1583,7 +1594,7 @@ def print_matlab(conf,ifilename,ofilename):
             reflist = s.strip().split()
 
             if len(reflist)==0:
-                print '  WARNING: Empty list of references.'
+                print '   WARNING: Empty list of references.'
             else:
 
                 buf=call_bibtex2html(reflist,conf)
@@ -1627,7 +1638,7 @@ def print_matlab(conf,ifilename,ofilename):
             # Pop the empty line
             line_empty=ibuf.pop()
             if len(line_empty[1:].strip())>0:
-                print 'Error: Figure definition must be followed by a single empty line.'
+                print '   Error: Figure definition must be followed by a single empty line.'
                 sys.exit()
                 
             heading=ibuf.pop()
@@ -1640,7 +1651,7 @@ def print_matlab(conf,ifilename,ofilename):
             line=ibuf.pop()
 
             if len(line[1:].strip())>0:
-                print 'Error: Figure definition must be followed by a single line header and an empty line.'
+                print '   Error: Figure definition must be followed by a single line header and an empty line.'
                 sys.exit()
 
             nfig+=1
@@ -1809,8 +1820,11 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
             # Create list of files with subdir appended	
             subdir,fname=os.path.split(fname)
             for name in P.files:
-                allfiles.append(os.path.join(subdir,name))
-                lookupsubdir[name]=subdir
+                if not name in conf.g.ignorelist:
+                    allfiles.append(os.path.join(subdir,name))
+                    lookupsubdir[name]=subdir
+                else:
+                    print '   IGNORING ',name
 
         conf.lookupsubdir=lookupsubdir
 
@@ -1899,13 +1913,13 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
 
                     for target in conf.t.targets:
                         if buf.find(target)==-1:
-                            print '    ',target,'is missing'
+                            print '   ',target,'is missing'
 
                     for notappear in conf.t.notappears:
                         pos=buf.find(notappear)
                         if pos>1:
                             endpos=buf.find('\n',pos)
-                            print '    ',buf[pos:endpos]
+                            print '   ',buf[pos:endpos]
 
 
 # ------------------ Run the program from the command line -------------
