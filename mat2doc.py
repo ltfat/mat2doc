@@ -234,7 +234,12 @@ def call_bibtex2html(reflist,conf):
 
     s='bibtex2html --warn-error --no-abstract --no-keys --no-keywords --nodoc --nobibsource --no-header --citefile '+outname+' -s '+conf.t.bibstyle+' --output '+outname+' '+conf.g.bibfile+'.bib'
 
-    output=check_output(s,shell=True,stderr=PIPE)
+    try:
+        output=check_output(s,shell=True,stderr=PIPE)
+    except CalledProcessError as s:
+        print s.output
+        raise s
+        
 
     if 'Warning' in output:
         print output
@@ -765,7 +770,7 @@ class ExecPrinter(BasePrinter):
                     out['body'].append('  '+s)
                     line=buf.pop()
 
-            if 'Input parameters' in line:
+            if 'Input parameters' in line:                
                 out['body'].append('Input parameters')
                 out['body'].append('----------------')
                 out['body'].append('')
@@ -779,12 +784,17 @@ class ExecPrinter(BasePrinter):
                     if s>0:
                         line=line[idl:]
                     if s==idl:
-                        line=re.sub(':',' ',line,1)
-                        line='--Q='+line
+                        colpos=line.find(':')
+                        firstpart=line[0:colpos]
+                        secondpart=' '*(colpos+1)+line[colpos+1:]
+                        firstpart=re.sub(',',', --Q=',firstpart)
+                        firstpart='--Q='+firstpart
+                        #out['body'].append('')
+                        out['body'].append(firstpart)
+                        out['body'].append(secondpart)
                     else:
-                        line='    '+line
+                        out['body'].append(line)                        
 
-                    out['body'].append(line)
                     line=buf.pop().rstrip()
                 # make sure the environment is closed
                 out['body'].append('')
@@ -803,12 +813,17 @@ class ExecPrinter(BasePrinter):
                     if s>0:
                         line=line[idl:]
                     if s==idl:
-                        line=re.sub(':',' ',line,1)
-                        line='--Q='+line
+                        colpos=line.find(':')
+                        firstpart=line[0:colpos]
+                        secondpart=' '*(colpos+1)+line[colpos+1:]
+                        firstpart=re.sub(',',', --Q=',firstpart)
+                        firstpart='--Q='+firstpart
+                        #out['body'].append('')
+                        out['body'].append(firstpart)
+                        out['body'].append(secondpart)
                     else:
-                        line='    '+line
+                        out['body'].append(line)                        
 
-                    out['body'].append(line)
                     line=buf.pop().rstrip()
                 # make sure the environment is closed
                 out['body'].append('')
@@ -898,6 +913,11 @@ class ExecPrinter(BasePrinter):
                     header_added=1
 
             out['body'].append(line.rstrip())
+
+        if 0:
+            for line in out['body']:
+                print line
+            sys.exit()
 
 
         self.parsed=out
@@ -1662,17 +1682,36 @@ def print_matlab(conf,ifilename,ofilename):
 
             continue
 
-        # Keep all other lines.
-        if len(line)>2:
-
-            # remove the display math sections. FIXME: This will not
-            # correctly handle display math in nested environments.
-            if '.. math::' in line:
+        # remove the display math sections. FIXME: This will not
+        # correctly handle display math in nested environments.
+        if '.. math::' in line:
+            line=ibuf.pop()
+            
+            # Keep removing lines until we hit an empty line.
+            while len(line[1:].strip())>0:
                 line=ibuf.pop()
 
-                # Keep removing lines until we hit an empty line.
-                while len(line[1:].strip())>0:
-                    line=ibuf.pop()
+            continue
+
+        # Handle comments: No substitutions must be made in
+        # comments, so they are handled differently than the rest
+        # of the text
+        if line[1:].strip()[0:2]=='..':
+            idl=find_indent(line[1:])
+            # Remove the start of the comments
+            line=line.replace(' .. ','    ')
+            outbuf+=line+'\n'
+            line=ibuf.pop()
+            # While the line does not start at zero.
+            while not (len(line[1:].strip())>0 and find_indent(line[1:])==idl):
+                outbuf+=line+'\n'
+                line=ibuf.pop()
+
+            continue
+
+
+        # Keep all other lines.
+        if len(line)>2:
 
             # Remove inline formula markup
             line=line.replace('$','')
@@ -1711,8 +1750,6 @@ def print_matlab(conf,ifilename,ofilename):
             line=line.replace('*.','.')
             line=line.replace('*\n','\n')
 
-            # Remove start of comments
-            line=line.replace(' .. ','    ')
 
             if line.find(':::')>0:
                 line=line.replace(':::',':')
