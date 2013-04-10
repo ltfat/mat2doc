@@ -634,14 +634,18 @@ class BasePrinter(object):
 
         buf.reverse()
 
+        # Find the help section: discard any lines in the beginning
+        # not starting with % and stop again as soon as a line not
+        # starting with % is encountered
+        foundhelp=0
         while len(buf)>0:
             line=buf.pop()
-            if line[0:8]=="function":
-                continue
             if len(line)>0 and line[0]=="%":
+                foundhelp=1
                 self.buf_help.append(line[1:])
             else:
-                break
+                if foundhelp:
+                    break
 
         self.parse()
 
