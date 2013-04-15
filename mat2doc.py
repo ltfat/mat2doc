@@ -1602,11 +1602,14 @@ def print_matlab(conf,ifilename,ofilename):
     ibuf.reverse()
 
     line=ibuf.pop()
-    
-    if line[0:8]=="function":
-        # Write the function line
+
+    # Copy all lines before the first comment
+    while not (len(line)>0 and line[0]=="%"):
         outbuf+=line+'\n'
-        line=ibuf.pop()
+        if len(ibuf)>0:
+            line=ibuf.pop()
+        else:
+            break
 
     # figure counter for the demos
     nfig=1
