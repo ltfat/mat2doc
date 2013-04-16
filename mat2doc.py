@@ -1479,6 +1479,12 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
     printtype={'png':'-dpng',
                'eps':'-depsc'}[ptype]
 
+    if not do_it:
+        # We are not supposed to generate anything, but if there is no
+        # _output file, we must rebuild anyway
+        if not os.path.exists(outprefix+'_output'):
+            do_it=1        
+
     if do_it:
         # Clear old figures. We *must* do this, as we cannot tell if
         # the number of figures has changed, and we would run the risk
@@ -1988,7 +1994,7 @@ parser.add_argument('-q', '--quiet',
 # Mutually exclusive : --execplot and --no-execplot
 group1 = parser.add_mutually_exclusive_group()
 group1.add_argument("--execplot", action="store_true", help='Process examples and demos')
-group1.add_argument("--no-execplot", action="store_true",help='Do not process examples or demos, but used cached files instead')
+group1.add_argument("--no-execplot", action="store_true",help='Do not process examples or demos, but used cached files instead, if available')
 
 # Mutually excluse : --auto, --cached, --rebuild
 group2 = parser.add_mutually_exclusive_group()
