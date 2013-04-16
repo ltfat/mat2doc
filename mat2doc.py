@@ -167,7 +167,11 @@ def matExport(projectdir,outputtargetdir):
 # ------------------ safe reading and writing of text files ---------------
 def saferead(filename):
     f=codecs.open(filename,'r',encoding="utf-8")
-    buf=unicode(f.read())
+    try:
+        buf=unicode(f.read())
+    except UnicodeDecodeError as s:
+        raise Mat2docError('File %s in not encoded an unicode, please convert it to Unicode.' % filename)
+    
     f.close()
 
     return buf
