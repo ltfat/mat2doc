@@ -139,6 +139,10 @@ def gitStageExport(repo,outputtargetdir):
     s=os.path.join(repo,'.git')
     os.system('git --git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
 
+def svnExport(repo,outputtargetdir):
+    rmrf(outputtargetdir)
+    os.system('svn export --force '+repo+' '+outputtargetdir)
+
 def detectVersionControl(projectdir):
     if os.path.exists(os.path.join(projectdir,'.svn')):
         return 'svn'
@@ -151,6 +155,9 @@ def matExport(projectdir,outputtargetdir):
     if vctype=='git':
         gitAutoStage(projectdir)
         gitStageExport(projectdir,outputtargetdir)
+
+    if vctype=='svn':
+        svnExport(projectdir,outputtargetdir)
 
     # Remove the mat2doc directory that just got copied/exported
     s=os.path.join(outputtargetdir,'mat2doc')
