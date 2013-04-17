@@ -34,6 +34,20 @@ def myexec(s):
         for line in buf:
             print line
 
+# ----------------- looking for programs -----------------------------------
+
+def testMatlab(path):
+    try:
+        output=check_output(path+' -h',shell=True,stderr=PIPE)
+    except CalledProcessError as s: 
+        # This is expected: matlab returns an error code of 1 on Unix
+        print '   WARNING: Exit code from Matlab',s.returncode
+        print s.output
+        sys.exit()
+
+    return ("Usage: matlab" in s)
+    
+
 # ----------------- extra path/dir manipulations ---------------------------
 
 # Create directory, and do not produce an error if it already exists
@@ -304,7 +318,7 @@ def protect_tex(line):
     line=line.replace('[','{[}')
     line=line.replace(']','{]}')
     #line=line.replace('_','\_')
-    line=line.replace('_','\\textunderscore{}')
+    line=line.replace('_','\_')
     line=line.replace('%','\%')
     line=line.replace('*','{*}')
     line=line.replace('^','\textasciicircum{}')
@@ -1054,8 +1068,9 @@ class ExecPrinter(BasePrinter):
 
     def print_tex(self,obuf):
         pname=self.c.t.protect(self.parsed['name'])
+        pname_unprotected=self.parsed['name'].lower()
         pnamel=pname.lower()
-        obuf.append('\subsection['+pnamel+']{'+pname+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pnamel+'}')
+        obuf.append('\subsection['+pnamel+']{'+pname+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pname_unprotected+'}')
     
         obuf.append('')
 
@@ -2017,6 +2032,8 @@ if rebuildmode==None:
 
 # Locate the mat2doc configuration directory
 projectname,projectdir,confdir=findMat2docDir(args.filename)
+
+#print testMatlab('matlab')
 
 printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot)
 
