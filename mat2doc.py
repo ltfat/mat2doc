@@ -1165,25 +1165,29 @@ class ExamplePrinter(ExecPrinter):
         (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
         
+        newbody=[]
         # Go through the code and fill in the correct filenames
         counter = 1
-        for idx in range(len(self.parsed['body'])):
-            line = self.parsed['body'][idx]
+        for line in self.parsed['body']:
             if line.find('figure::')>0:
-                self.parsed['body'][idx] = line+' '+self.name+'_'+`counter`+'.'+self.c.t.imagetype
+                newbody.append(line+' '+self.name+'_'+`counter`+'.'+self.c.t.imagetype)
                 if len(self.c.t.widthstr)>0:
-                    out['body'].append('   :width: '+self.c.t.widthstr)
+                    newbody.append('   :width: '+self.c.t.widthstr)
 
                 counter += 1
+            else:
+                newbody.append(line)
         
 
         # Append the result, if there is any
         if len(outbuf)>0:
-            self.parsed['body'].append('*This code produces the following output*::')
-            self.parsed['body'].append('')
+            newbody.append('*This code produces the following output*::')
+            newbody.append('')
             for outline in outbuf:
-                self.parsed['body'].append('  '+outline)
-            self.parsed['body'].append('')                
+                newbody.append('  '+outline)
+            newbody.append('')                
+
+        self.parsed['body']=newbody
 
         #self.write_output_html(outbuf)
 
@@ -1702,6 +1706,11 @@ def print_matlab(conf,ifilename,ofilename):
                 
             heading=ibuf.pop()
 
+            if not find_indent(heading[1:])==6:
+                print "Error in %s:" % os.path.basename(ifilename)
+                print "   The headline after the .. figure:: definition must start with 6 spaces" 
+                sys.exit()
+
             if len(heading[1:].strip())==0:
                 print 'Error: Figure definition must be followed by a single empty line.'
                 sys.exit()
@@ -1801,7 +1810,8 @@ def print_matlab(conf,ifilename,ofilename):
 
     # Append url for quick online help
     # Find the name of the file + the subdir in the package 
-    shortpath=ifilename[len(conf.t.dir):-2]
+    # Exclude the first slash in shortpath to not get a double slash, therefore the "+1"
+    shortpath=ifilename[len(conf.t.dir)+1:-2]
     outbuf+=u'%\n'
     outbuf+=u'%   Url: '+conf.t.urlbase+shortpath+conf.t.urlext+'\n'
     
