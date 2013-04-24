@@ -11,41 +11,141 @@ from pygments.formatters import HtmlFormatter
 
 import docutils.core
 
-class Mat2docError(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
+#class Mat2docError(Exception):
+#    def __init__(self, value):
+#        self.value = value
+#    def __str__(self):
+#        return repr(self.value)
 
-def myexec(s):
-    print 'Executing: '+s
+# This is used to report all errors comming from the outside
+def userError(s):
+    print s
+    sys.exit(1)
 
-    p=Popen(s,shell=True,stdout=PIPE,stderr=PIPE,close_fds=True)
-    sts = os.waitpid(p.pid, 0)
-    buf=p.stdout.readlines()
-    if len(buf)>0:
-        print '   STDOUT:'
-        for line in buf:
-            print line
+# ----------------- Executing programs -------------------------------------
 
-    buf=p.stderr.readlines()
-    if len(buf)>0:
-        print '   STDERR:'
-        for line in buf:
-            print line
+class ProgramExecuter:
+    checked=0
 
-# ----------------- looking for programs -----------------------------------
+    teststring='--help'
+    matchstring='usage:'
 
-def testMatlab(path):
-    try:
-        output=check_output(path+' -h',shell=True,stderr=PIPE)
-    except CalledProcessError as s: 
-        # This is expected: matlab returns an error code of 1 on Unix
-        print '   WARNING: Exit code from Matlab',s.returncode
-        print s.output
-        sys.exit()
+    def __init__(self,path):
+        self.path=path
 
-    return ("Usage: matlab" in s)
+    def executeRaw(self,s):
+        finals=self.path+' '+s
+        P=Popen(finals,shell=True,stdout=PIPE,stderr=PIPE)
+        code=P.wait()
+        output=P.stdout.read()
+        errput=P.stderr.read()
+        
+        return(output,errput,code)
+
+    def __call__(self,s):
+        self.test()
+        (output,errput,code)=self.executeRaw(s)
+        return output
+
+    def test(self,):
+        if self.checked:
+            return
+
+        (output,errput,code)=self.executeRaw(self.teststring)
+
+        if not ((self.matchstring in output) or (self.matchstring in errput)):
+            print output
+            print errput
+            self.notFound()
+
+        self.checked=1
+
+    def notFound(self):
+        print 'ERROR: Cannot find '+self.name
+        sys.exit(-1);
+
+
+class MatlabExecuter(ProgramExecuter):
+    
+    name='Matlab'
+    teststring='-h'
+    matchstring='Usage:  matlab'
+
+    def __call__(self,s):
+        self.test()
+        (output,errput,code)=self.executeRaw('-nodesktop -nodisplay '+s)
+        return output
+
+class OctaveExecuter(ProgramExecuter):
+    
+    name='Octave'
+    matchstring='Usage:'
+
+    def __call__(self,s):
+        self.test()    
+        (output,errput,code)=self.executeRaw('-q '+s)
+        return output
+
+class LynxExecuter(ProgramExecuter):
+    
+    name='Lynx'
+    matchstring='USAGE:'
+
+    def __call__(self,outname):
+        self.test()    
+
+        s='-dump '+outname+'.html > '+outname+'.txt'
+
+        (output,errput,code)=self.executeRaw(s)
+
+        buf=safereadlines(outname+'.txt')        
+        buf=map(lambda x:x.strip(),buf)
+
+        return buf
+
+class Bibtex2htmlExecuter(ProgramExecuter):
+    name='Bibtex2html'
+    matchstring='Usage:'
+
+    def __init__(self,path,tmpdir,bibfile,bibstyle):
+        ProgramExecuter.__init__(self,path)
+        self.tmpdir=tmpdir
+        self.bibfile=bibfile
+        self.bibstyle=bibstyle
+
+    def __call__(self,reflist):
+
+        self.test()
+
+        outname=os.path.join(self.tmpdir,'reflist')
+
+        safewritelines(outname,reflist)
+
+        s='--warn-error --no-abstract --no-keys --no-keywords --nodoc --nobibsource --no-header --citefile '+outname+' -s '+self.bibstyle+' --output '+outname+' '+self.bibfile+'.bib'
+
+        (output,errput,code)=self.executeRaw(s)
+        if not code==0:
+            print 'ERROR while running Bibtex2html:'
+            userError(errput)
+
+        if 'Warning' in output:
+            print output
+            print 'STOPPING MAT2DOC: bibtex key missing in bibfile'
+            sys.exit()
+
+        buf=saferead(outname+'.html')
+
+        # Strip the annoying footer
+        ii=buf.find('<hr>')
+        buf=buf[:ii]+'\n'
+
+        return buf.split('\n')
+
+class GitExecuter(ProgramExecuter):
+    name='Git'
+
+class SvnExecuter(ProgramExecuter):
+    name='Svn'
     
 
 # ----------------- extra path/dir manipulations ---------------------------
@@ -184,7 +284,7 @@ def saferead(filename):
     try:
         buf=unicode(f.read())
     except UnicodeDecodeError as s:
-        raise Mat2docError('File %s in not encoded an unicode, please convert it to Unicode.' % filename)
+        userError('File %s in not encoded an unicode, please convert it to Unicode.' % filename)
     
     f.close()
 
@@ -252,32 +352,6 @@ def call_rst(instring,outtype):
                                      settings=None, settings_overrides=args)
     return unicode(buf,'utf-8')
 
-def call_bibtex2html(reflist,conf):
-    outname=os.path.join(conf.g.tmpdir,'reflist')
-
-    safewritelines(outname,reflist)
-
-    s='bibtex2html --warn-error --no-abstract --no-keys --no-keywords --nodoc --nobibsource --no-header --citefile '+outname+' -s '+conf.t.bibstyle+' --output '+outname+' '+conf.g.bibfile+'.bib'
-
-    try:
-        output=check_output(s,shell=True,stderr=PIPE)
-    except CalledProcessError as s:
-        print s.output
-        raise s
-        
-
-    if 'Warning' in output:
-        print output
-        print 'STOPPING MAT2DOC: bibtex key missing in bibfile'
-        sys.exit()
-
-    buf=saferead(outname+'.html')
-
-    # Strip the annoying footer
-    ii=buf.find('<hr>')
-    buf=buf[:ii]+'\n'
-
-    return buf.split('\n')
 
 
 def rst_postprocess(instr,outtype):
@@ -395,6 +469,8 @@ class TargetConf(ConfType):
         if not self.urlbase[-1]=='/':
             self.urlbase+='/'
 
+        self.bibexecuter=Bibtex2htmlExecuter('bibtex2html',g.tmpdir,g.bibfile,self.bibstyle)
+
 
  # This is the class from which TeX configuration should be derived.
 class TexConf(TargetConf):
@@ -444,7 +520,7 @@ class WebConf(TargetConf):
             print '   WARNING: Empty list of references.'
         else:
 
-            buf=call_bibtex2html(reflist,caller.c)
+            buf=self.bibexecuter(reflist)
 
             obuf.append(self.referenceheader)
             obuf.extend(buf)
@@ -535,7 +611,8 @@ class HtmlConf(WebConf):
         if os.path.exists(templatefile):
             self.template=saferead(templatefile)
         else:
-            raise Mat2docError('Template file %s is missing.' % templatefile)
+            userError('Template file %s is missing.' % templatefile)
+            
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
@@ -635,6 +712,8 @@ class MatConf(TargetConf):
         self.footer=self.footer.format(AUTHOR=g.author,
                              VERSION=g.version,
                              YEAR=g.year)
+
+        self.lynxexecuter=LynxExecuter('lynx')
 
 
 # -----------------  Object structure for the parser -------------------------
@@ -884,7 +963,7 @@ class ExecPrinter(BasePrinter):
                 outputprefix=os.path.join(self.c.t.dir,self.fullname+'_'+`exec_n`)
 
                 # Execute the code
-                (outbuf,nfigs)=execplot(self.c.g.plotengine,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
+                (outbuf,nfigs)=execplot(self.c.g.plotexecuter,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
 
                 # Append the result, if there is any
                 if len(outbuf)>0:
@@ -906,7 +985,8 @@ class ExecPrinter(BasePrinter):
             if 'See also' in line:
                 (dummy,sep,s) = line.partition(':')
                 if not(sep==':'):
-                    raise Mat2docError('In function %s: See also line must contain a :' % out['name'])
+                    userError('In function %s: See also line must contain a :' % out['name'])
+
                 out['seealso']=map(lambda x:x.strip(',').lower(),s.split())
                 while (len(buf)>0) and len(buf[-1][1:].strip())>0:
                     line = buf.pop();
@@ -917,7 +997,7 @@ class ExecPrinter(BasePrinter):
             if 'Demos' in line:
                 (dummy,sep,s) = line.partition(':')
                 if not(sep==':'):
-                    raise Mat2docError('In function %s: Demos line must contain a :' % out['name'])
+                    userError('In function %s: Demos line must contain a :' % out['name'])
                 out['demos']=map(lambda x:x.strip(',').lower(),s.split())
                 continue
 
@@ -961,7 +1041,7 @@ class ExecPrinter(BasePrinter):
         if os.path.exists(s):
             self.codebuf=saferead(s)
         else:
-            raise Mat2docError("The Matlab code file %s cannot be found. You probably need to run the 'mat' target first." % s)
+            userError("The Matlab code file %s cannot be found. You probably need to run the 'mat' target first." % s)
 
     def print_code_html(self):
         
@@ -1162,7 +1242,7 @@ class ExamplePrinter(ExecPrinter):
         outputprefix=os.path.join(self.c.t.dir,self.fullname)
 
         # Execute the code in the script
-        (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
+        (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
         
         newbody=[]
@@ -1223,7 +1303,7 @@ class ExamplePrinter(ExecPrinter):
         outputprefix=os.path.join(self.c.t.dir,self.fullname)
 
         # Execute the code in the script
-        (outbuf,nfigs)=execplot(self.c.g.plotengine,self.codebuf.split('\n'),
+        (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
         
         obuf.append('\\subsubsection*{Output}')
@@ -1491,7 +1571,7 @@ def clean_tex(line):
     return line
 
 
-def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
+def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
     tmpfile='plotexec'
     tmpname=os.path.join(tmpdir,tmpfile+'.m')
@@ -1555,29 +1635,24 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
 
         # Matlab needs an explicit 'exit' statement, otherwise the interpreter
         # hangs around.
-        if plotengine=='matlab':
+        if plotexecuter.name=='Matlab':
             obuf+='pause(1);\n'
             obuf+='exit\n'
 
         safewrite(tmpname,obuf)
 
-        if plotengine=='octave':
-           # -q suppresses the Octave startup message.
-           s='octave -q '+tmpname
+        if plotexecuter.name=='octave':
+           s=tmpname
         else:
-           s='matlab -nodesktop -nodisplay -r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
+           s='-r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
 
-        print '   Producing '+outprefix+' using '+plotengine
+        print '   Producing '+outprefix+' using '+plotexecuter.name
 
-        try:
-            output=check_output(s,shell=True,stderr=PIPE)
-        except CalledProcessError as s: 
-            print '   WARNING: Exit code from Matlab',s.returncode
-            output=s.output
+        output=plotexecuter(s)
 
         pos=output.find('MARKER')
         if pos<0:
-            raise Mat2docError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
+            userError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
 
         # Remove everything until and including the marker
         output=output[pos+7:].strip()
@@ -1585,7 +1660,7 @@ def execplot(plotengine,buf,outprefix,ptype,tmpdir,do_it):
         if 'ERROR IN THE CODE' in output:
             print '--------- Matlab code error ----------------'
             print output        
-            raise Mat2docError('For the output %s: There was an error in the Matlab code.' % outprefix)
+            userError('For the output %s: There was an error in the Matlab code.' % outprefix)
 
         output=output.strip()
 
@@ -1660,7 +1735,7 @@ def print_matlab(conf,ifilename,ofilename):
                 print '   WARNING: Empty list of references.'
             else:
 
-                buf=call_bibtex2html(reflist,conf)
+                buf=conf.t.bibexecuter(reflist)
 
                 obuf=''
 
@@ -1681,12 +1756,7 @@ def print_matlab(conf,ifilename,ofilename):
                 outname=os.path.join(conf.g.tmpdir,'reflist')
                 safewrite(outname+'.html',obuf)
 
-                s='lynx -dump '+outname+'.html > '+outname+'.txt'
-                os.system(s)
-
-                buf=safereadlines(outname+'.txt')
-
-                buf=map(lambda x:x.strip(),buf)
+                buf=conf.t.lynxexecuter(outname)
 
                 outbuf+=u'%   References:\n'
                 for rline in buf[0:]:
@@ -1863,6 +1933,8 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
 
     conf.g.execplot=do_execplot
+
+    conf.g.plotexecuter=MatlabExecuter('matlab')
 
     # Target
     if target=='php':
@@ -2042,8 +2114,6 @@ if rebuildmode==None:
 
 # Locate the mat2doc configuration directory
 projectname,projectdir,confdir=findMat2docDir(args.filename)
-
-#print testMatlab('matlab')
 
 printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot)
 
