@@ -978,6 +978,7 @@ class ExecPrinter(BasePrinter):
                     out['body'].append('.. image:: '+self.fname+'_'+`exec_n`+'_'+`i+1`+'.'+self.c.t.imagetype)
                     if len(self.c.t.widthstr)>0:
                         out['body'].append('   :width: '+self.c.t.widthstr)
+                    out['body'].append('   :align: center')
                     out['body'].append('')
 
                 continue
@@ -1071,11 +1072,21 @@ class ExecPrinter(BasePrinter):
                 buf_to_rst+=u'\n'
                 continue
 
+            # The techniques used below are quite unsafe, because they
+            # will trigger for any line opening with ' or ` 
+
             # Transform list definitions and formulae
             if len(line)>2 and line[2]=="'":
                 line=re.sub("  '","--Q",line)
                 line=re.sub("',","Q ",line)
                 line=re.sub("' ","Q ",line)
+
+            if len(line)>2 and line[2]=="`":
+                line=re.sub("  `","--X",line)
+                line=re.sub("`,","X ",line)
+                line=re.sub("` ","X ",line)
+                line=re.sub("\.","X",line)
+
 
             # Substite the correct formula code
             if '$' in line:
@@ -1085,10 +1096,10 @@ class ExecPrinter(BasePrinter):
                     line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]                
             buf_to_rst+=line+u'\n'
 
-        if 0: #self.c.t.basetype=='tex':
-            if self.fname=='admm':
-                print buf_to_rst
-                sys.exit()
+        
+        # Uncomment this to print the raw reStructuredText input
+        #print buf_to_rst
+        #sys.exit()
 
 
         buf=call_rst(buf_to_rst,self.c.t.basetype)
@@ -1114,6 +1125,18 @@ class ExecPrinter(BasePrinter):
             secondpart=re.sub("-{}-Q","'",secondpart)
             secondpart=re.sub("Q ","',",secondpart)
             secondpart=re.sub("Q]","']",secondpart)
+
+        if self.c.t.basetype=='php' or self.c.t.basetype=='html':
+            firstpart =re.sub("--X=","",firstpart)
+            secondpart=re.sub("--X","'",secondpart)
+            secondpart=re.sub("X ","',",secondpart)
+            secondpart=re.sub("X<","'<",secondpart)
+
+        if self.c.t.basetype=='tex':
+            firstpart =re.sub("-{}-X=","",firstpart)
+            secondpart=re.sub("-{}-X","'",secondpart)
+            secondpart=re.sub("X ","',",secondpart)
+            secondpart=re.sub("X]","']",secondpart)
 
 
         buf = firstpart+secondpart
@@ -1253,7 +1276,7 @@ class ExamplePrinter(ExecPrinter):
                 newbody.append(line+' '+self.name+'_'+`counter`+'.'+self.c.t.imagetype)
                 if len(self.c.t.widthstr)>0:
                     newbody.append('   :width: '+self.c.t.widthstr)
-
+                newbody.append('   :align: center')
                 counter += 1
             else:
                 newbody.append(line)
@@ -1290,6 +1313,7 @@ class ExamplePrinter(ExecPrinter):
                 rstbuf.append(line+' '+self.name+'_'+`counter`+'.'+self.c.t.imagetype)
                 if len(self.c.t.widthstr)>0:
                     rstbuf.append('   :width: '+self.c.t.widthstr)
+                rstbuf.append('   :align: center')
 
                 counter += 1
             else:
