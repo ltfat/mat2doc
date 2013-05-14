@@ -53,10 +53,14 @@ class ProgramExecuter:
 
         (output,errput,code)=self.executeRaw(self.teststring)
 
+        # This is not a good method because the help output may be
+        # translated on different platforms
+        #
         if not ((self.matchstring in output) or (self.matchstring in errput)):
-            print output
-            print errput
             self.notFound()
+
+        #if not code==0:
+        #    self.notFound()
 
         self.checked=1
 
@@ -585,7 +589,7 @@ class PhpConf(WebConf):
         for line in parsed:
             uniq_no+=1
             if line[0]=="li":
-                obuf.append("   'li"+`uniq_no`+"' => '"+"<a href=\""+line[1]+self.fext+"\">"+line[1]+"</a>',")
+                obuf.append("   'li"+`uniq_no`+"' => '"+line[1]+"',")
 
             if line[0]=="caption":
                 obuf.append("   'caption"+`uniq_no`+"' => '"+line[1]+"',")
@@ -1173,7 +1177,7 @@ class ExecPrinter(BasePrinter):
         pname=self.c.t.protect(self.parsed['name'])
         pname_unprotected=self.parsed['name'].lower()
         pnamel=pname.lower()
-        obuf.append('\subsection['+pnamel+']{'+pname+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pname_unprotected+'}')
+        obuf.append('\subsection['+pnamel+']{'+pname+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pname_unprotected+'}\index{'+pnamel+'}')
     
         obuf.append('')
 
