@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,os,os.path,string,re,codecs,shutil
+import sys,os,os.path,string,re,codecs,shutil,posixpath
 import argparse
 from subprocess import *
 
@@ -568,7 +568,7 @@ class PhpConf(WebConf):
         obuf.extend(maincontents)
         obuf.append("';")
 
-        obuf.append('printpage($title,$keywords,$seealso,$demos,$content,$doctype);')
+        obuf.append('printpage($name,$title,$keywords,$seealso,$demos,$content,$doctype);')
 
         # Close PHP
         obuf.append('?>')
@@ -1201,6 +1201,9 @@ class ExecPrinter(BasePrinter):
 
         obuf=[]
 
+        # --- Name
+        obuf.append('$name = "'+self.fname+'";')
+
         # --- Title
         obuf.append('$title = "'+self.title+'";')
 
@@ -1533,6 +1536,9 @@ class ContentsPrinter(BasePrinter):
         #   "  is the string delimiter in php
 
         obuf=[]
+
+        # --- Name
+        obuf.append('$name = "'+self.fname+'";')
 
         # --- Title
         obuf.append('$title = "'+self.title+'";')
@@ -2035,6 +2041,26 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
         # flush the file, because we need it again very quickly
         f.flush()
         f.close()
+
+        if conf.t.basetype=='php':
+            print "Writing lookup table"
+            f=open(os.path.join(conf.t.dir,'lookup.php'),'w')
+
+            f.write('<?php\n')
+            f.write('$globalfunlist = array(\n')
+
+            mfilenames=lookupsubdir.keys()
+            mfilenames.sort()
+            for k in mfilenames:
+                f.write("   '"+k+"' => '"+posixpath.join(lookupsubdir[k],k)+"',\n")
+
+            f.write(");\n")
+            f.write("?>\n")
+
+            # flush the file, because we need it again very quickly
+            f.flush()
+            f.close()            
+            
 
         # Print Contents files
         lookupsubdir={}
