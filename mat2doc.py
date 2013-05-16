@@ -19,7 +19,7 @@ import docutils.core
 
 # This is used to report all errors comming from the outside
 def userError(s):
-    print s
+    print '   '+s
     sys.exit(1)
 
 # ----------------- Executing programs -------------------------------------
@@ -568,7 +568,7 @@ class PhpConf(WebConf):
         obuf.extend(maincontents)
         obuf.append("';")
 
-        obuf.append('printpage($name,$title,$keywords,$seealso,$demos,$content,$doctype);')
+        obuf.append('printpage($name,$subdir,$title,$keywords,$seealso,$demos,$content,$doctype);')
 
         # Close PHP
         obuf.append('?>')
@@ -1204,12 +1204,17 @@ class ExecPrinter(BasePrinter):
         # --- Name
         obuf.append('$name = "'+self.fname+'";')
 
+        # --- Subdir
+        obuf.append('$subdir = "'+self.subdir+'";')
+
         # --- Title
         obuf.append('$title = "'+self.title+'";')
 
         # --- See also
         obuf.append('$seealso = array(')
         for see in self.parsed.get('seealso',[]):
+            if not see in self.c.lookupsubdir:
+                userError('The function %s listed in "See also" cannot be found' % see)
             obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
                         self.c.lookupsubdir[see]+'/'+see+self.c.t.fext+'",')
             
@@ -1539,6 +1544,9 @@ class ContentsPrinter(BasePrinter):
 
         # --- Name
         obuf.append('$name = "'+self.fname+'";')
+
+        # --- Subdir
+        obuf.append('$subdir = "'+self.subdir+'";')
 
         # --- Title
         obuf.append('$title = "'+self.title+'";')
@@ -2073,10 +2081,14 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
 
 
         for fname in allfiles:
-            if do_rebuild_file(os.path.join(conf.g.projectdir,fname+'.m'),
-                               os.path.join(conf.t.dir,fname+fileext),
+            sourcefile=os.path.join(conf.g.projectdir,fname+'.m')
+            if not os.path.exists(sourcefile):
+                userError('Missing the file %s which was specified in a Contents.m file' % fname)
+
+            if do_rebuild_file(sourcefile,os.path.join(conf.t.dir,fname+fileext),
                                rebuildmode):
                 print 'Rebuilding '+conf.t.basetype+' '+fname
+
 
                 P=matfile_factory(conf,fname)
                 P.write_the_file()
