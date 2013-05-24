@@ -1665,7 +1665,6 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         obuf+="set(0, 'DefaultFigureVisible', 'off');\n"
 
-        obuf+="""
         # Matlab does not terminate if there is an error in the code, so
         # we use a try-catch statment to capture the error an exit cleanly.
         obuf+="try\n"
@@ -1673,7 +1672,8 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         for line in buf:
             obuf+=line+'\n'
 
-      for ii=1:numel(findall(0,'type','figure'))
+        obuf+="""
+    for ii=1:numel(findall(0,'type','figure'))
       figure(ii);
       %X=get(gcf,'PaperPosition');
       %set(gcf,'PaperPosition',[X(1) X(2) .7*X(3) .7*X(4)]);
