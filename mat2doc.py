@@ -354,6 +354,7 @@ def call_rst(instring,outtype):
     # Call rst2html or similar
     buf=docutils.core.publish_string(instring,writer_name=writernames[outtype],
                                      settings=None, settings_overrides=args)
+
     return unicode(buf,'utf-8')
 
 
@@ -455,6 +456,15 @@ class GlobalConf(ConfType):
             self.ignorelist=safereadlines(s)
         else:
             self.ignorelist=[]    
+
+        # if "versionfile" exists, use it to override "version"
+        if hasattr(self,"versionfile"):
+            s=os.path.join(self.projectdir,self.versionfile)
+            if os.path.exists(s):
+                self.version=saferead(s).strip()
+            else:
+                userError('File %s speficied in the global conf.py is missing.' % s)
+            
 
 class TargetConf(ConfType):    
     bibstyle='abbrv'
@@ -1214,9 +1224,11 @@ class ExecPrinter(BasePrinter):
         obuf.append('$seealso = array(')
         for see in self.parsed.get('seealso',[]):
             if not see in self.c.lookupsubdir:
-                userError('The function %s listed in "See also" cannot be found' % see)
-            obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
-                        self.c.lookupsubdir[see]+'/'+see+self.c.t.fext+'",')
+                if not see in self.c.g.ignorelist:
+                    userError('The function %s listed in "See also" cannot be found' % see)
+            else:
+                obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
+                            self.c.lookupsubdir[see]+'/'+see+self.c.t.fext+'",')
             
         obuf.append(');')
 
@@ -1278,7 +1290,8 @@ class ExamplePrinter(ExecPrinter):
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
+                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
+                                self.c.g.execplot)
         
         newbody=[]
         # Go through the code and fill in the correct filenames
@@ -1340,7 +1353,8 @@ class ExamplePrinter(ExecPrinter):
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
+                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
+                                self.c.g.execplot)
         
         obuf.append('\\subsubsection*{Output}')
             
@@ -1649,11 +1663,9 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         obuf+="disp('MARKER');\n"
 
-        obuf+="""
-    set(0, 'DefaultFigureVisible', 'off');
-    %set(0, 'DefaultAxesVisible', 'off');
-    """
+        obuf+="set(0, 'DefaultFigureVisible', 'off');\n"
 
+        obuf+="""
         # Matlab does not terminate if there is an error in the code, so
         # we use a try-catch statment to capture the error an exit cleanly.
         obuf+="try\n"
@@ -1661,9 +1673,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         for line in buf:
             obuf+=line+'\n'
 
-        obuf+="""
-
-    for ii=1:numel(findall(0,'type','figure'))
+      for ii=1:numel(findall(0,'type','figure'))
       figure(ii);
       %X=get(gcf,'PaperPosition');
       %set(gcf,'PaperPosition',[X(1) X(2) .7*X(3) .7*X(4)]);
