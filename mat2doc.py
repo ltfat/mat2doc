@@ -1697,7 +1697,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
             userError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
 
         # Remove everything until and including the marker
-        output=output[pos+7:].strip()
+        output=output[pos+14:].strip()
 
         if 'ERROR IN THE CODE' in output:
             print '--------- Matlab code error ----------------'
