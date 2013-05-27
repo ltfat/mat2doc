@@ -93,7 +93,7 @@ class OctaveExecuter(ProgramExecuter):
 class LynxExecuter(ProgramExecuter):
     
     name='Lynx'
-    matchstring='USAGE:'
+    matchstring='cookies'
 
     def __call__(self,outname):
         self.test()    
@@ -421,7 +421,9 @@ class ConfContainer:
     pass
 
 # This is the base class for deriving all configuration objects.
-class ConfType:    
+class ConfType:
+
+    includeoutput=True
     def __init__(self,confdir):
         self.confdir=confdir
 
@@ -980,7 +982,7 @@ class ExecPrinter(BasePrinter):
                 (outbuf,nfigs)=execplot(self.c.g.plotexecuter,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
 
                 # Append the result, if there is any
-                if len(outbuf)>0:
+                if len(outbuf)>0 and self.c.t.includeoutput:
                     out['body'].append('*This code produces the following output*::')
                     out['body'].append('')
                     for outline in outbuf:
