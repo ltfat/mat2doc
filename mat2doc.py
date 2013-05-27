@@ -1706,15 +1706,26 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         if pos<0:
             userError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
 
+        # Advance to the end of the MARKER line
+        pos=output.find('\n',pos)
+
         # Remove everything until and including the marker
-        output=output[pos+14:].strip()
+        output=output[pos+1:].strip()
 
         if 'ERROR IN THE CODE' in output:
             print '--------- Matlab code error ----------------'
             print output        
             userError('For the output %s: There was an error in the Matlab code.' % outprefix)
 
-        output=output.strip()
+        # Sometimes Matlab prints the prompt on the last line, it ends
+        # with a ">" sign, which should otherwise never terminate the output.
+        if (len(output)>0) and (output[-1]=='>'):
+            # Kill the last line
+            pos=output.rfind('\n',0,-1)
+            # Common case, there is only one line
+            if pos==-1:
+                pos=0
+            output=output[:pos]
 
         # Write the output to a file
         #safewrite(outprefix+'_output',output)
@@ -1730,13 +1741,6 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
     # Read the output previously written
     outbuf=safereadlines(outprefix+'_output')
-
-
-    # Sometimes Matlab prints the prompt on the last line, it ends
-    # with a ">" sign, which should otherwise never terminate the output.
-    if (len(outbuf)>0) and (outbuf[-1][-1]=='>'):
-        outbuf.pop()
-
 
     # Find the number of figures
     p=os.listdir(fullpath)
