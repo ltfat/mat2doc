@@ -982,7 +982,8 @@ class ExecPrinter(BasePrinter):
                 (outbuf,nfigs)=execplot(self.c.g.plotexecuter,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
 
                 # Append the result, if there is any
-                if len(outbuf)>0 and self.c.t.includeoutput:
+
+                if len(outbuf)>0:
                     out['body'].append('*This code produces the following output*::')
                     out['body'].append('')
                     for outline in outbuf:
@@ -1310,7 +1311,7 @@ class ExamplePrinter(ExecPrinter):
         
 
         # Append the result, if there is any
-        if len(outbuf)>0:
+        if len(outbuf)>0 and self.c.t.includeoutput:
             newbody.append('*This code produces the following output*::')
             newbody.append('')
             for outline in outbuf:
@@ -1357,15 +1358,15 @@ class ExamplePrinter(ExecPrinter):
         (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
                                 self.c.g.execplot)
-        
-        obuf.append('\\subsubsection*{Output}')
-            
-        obuf.append('\\begin{verbatim}')
+        if self.c.t.includeoutput:
+            obuf.append('\\subsubsection*{Output}')
+                
+            obuf.append('\\begin{verbatim}')
 
-        for line in outbuf:
-            obuf.append(line)
+            for line in outbuf:
+                obuf.append(line)
 
-        obuf.append('\\end{verbatim}')
+            obuf.append('\\end{verbatim}')
 
         return obuf
 
