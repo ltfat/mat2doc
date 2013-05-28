@@ -363,11 +363,14 @@ def rst_postprocess(instr,outtype):
 
 
     if outtype=='tex':
+
         instr = re.sub("\\\\section\*{","\\subsubsection*{",instr)
+        instr = re.sub("\\\\section{","\\subsubsection{",instr)
         instr = re.sub("\\\\phantomsection","",instr)
         instr = re.sub("\\\\addcontentsline.*\n","",instr)
         instr = re.sub("\\\\newcounter{listcnt0}","\\\setcounter{listcnt0}{0}",instr)
         instr = re.sub("\\\\label{.*?}%\n","",instr)
+        
 
 
     buf = instr.split('\n')
