@@ -1907,15 +1907,31 @@ def print_matlab(conf,ifilename,ofilename):
             line=line.replace('`<','')
             line=line.replace('>`_','')
 
+            # This would be cool for Matlab
+            # <a href="matlab: help foo>extended_help">
+
+            # In the loops below, the line is modified in each
+            # iteration, so we don't use re.finditer
+
             # Convert internal links to uppercase
-            p=re.search(' \|.*?\|',line)
-            if p:
-                line=line[0:p.start(0)+1]+line[p.start(0)+2:p.end(0)-1].upper()+line[p.end(0):]
+            while True:
+                p=re.search(' \|.*?\|',line)
+                if p:
+                    line=line[0:p.start(0)+1]+line[p.start(0)+2:p.end(0)-1].upper()+line[p.end(0):]
+
+                    # Enabling the line below would make nice links in Matlab, but it looks ugly in Octave
+                    #line=line[0:p.start(0)+1]+'<a href="matlab: help '+line[p.start(0)+2:p.end(0)-1]+'">'+line[p.start(0)+2:p.end(0)-1]+'</a>'+line[p.end(0):]
+                else:
+                    break
 
             # Uppercase the function name appearing inside backticks, and remove them
-            p=re.search('`.*?`',line)
-            if p:
-                line=line[0:p.start(0)]+line[p.start(0)+1:p.end(0)-1].replace(name,name.upper())+line[p.end(0):]
+            while True:
+                p=re.search('`.*?`',line)
+                if p:
+                    line=line[0:p.start(0)]+line[p.start(0)+1:p.end(0)-1].replace(name,name.upper())+line[p.end(0):]            
+                else:
+                    break
+
 
             #line=line.replace('`','')
 
