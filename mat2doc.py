@@ -2050,17 +2050,29 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
         # Search the Contents files for all files to process
         allfiles=[]
         lookupsubdir={}
+
+        # idxfile is used for creating a valid INDEX file for the
+        # Octave package system.
+        idxfile=open(os.path.join(conf.t.dir,'INDEX'),'w')
+        idxfile.write(conf.g.octtitle+'\n')
         for fname in conf.t.indexfiles:
             P=ContentsPrinter(conf,fname)
-
             # Create list of files with subdir appended	
             subdir,fname=os.path.split(fname)
+
+            if len(subdir)==0:
+                idxfile.write('base\n')
+            else:
+                idxfile.write(subdir+'\n')
             for name in P.files:
                 if not name in conf.g.ignorelist:
                     allfiles.append(os.path.join(subdir,name))
                     lookupsubdir[name]=subdir
+                    idxfile.write(' '+name+'\n')
                 else:
                     print '   IGNORING ',name
+
+        idxfile.close()
 
         conf.lookupsubdir=lookupsubdir
 
