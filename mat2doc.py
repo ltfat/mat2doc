@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,os,os.path,string,re,codecs,shutil,posixpath
+import sys,os,os.path,string,re,codecs,shutil,posixpath,datetime
 import argparse
 from subprocess import *
 
@@ -733,6 +733,18 @@ class MatConf(TargetConf):
                              YEAR=g.year)
 
         self.lynxexecuter=LynxExecuter('lynx')
+
+
+ # This is the class from which Octave package configuration should be derived.
+class OctpkgConf:
+    basetype='octpkg'
+    fext='.m'
+
+    def __init__(self,g):        
+        self.confdir=os.path.join(g.confdir,self.basetype)
+
+        self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
+        self.codedir=os.path.join(g.outputdir,g.projectname+'-mat')
 
 
 # -----------------  Object structure for the parser -------------------------
@@ -2026,6 +2038,9 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
 
     if target=='mat':
         conf.t=MatConf(conf.g)
+
+    if target=='octpkg':
+        conf.t=OctpkgConf(conf.g)
         
 
     conf.t.basetype=targetname
@@ -2036,16 +2051,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
     # Copy the startup.m file to the temporary directory
     shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)
     
-    if conf.t.basetype=='php' or conf.t.basetype=='tex' or conf.t.basetype=='html':
-
-        fileext='.'+conf.t.basetype
-
-        # These should not be neccesary to set, as they depend on
-        # reStructuredTex, so they are impossible to change
-        # Still needed for printing the code
-        conf.t.hb='<H2>'
-        conf.t.he='</H2>'
-
+    if conf.t.basetype=='octpkg':
         print "Creating list of files"
         # Search the Contents files for all files to process
         allfiles=[]
@@ -2073,6 +2079,34 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
                     print '   IGNORING ',name
 
         idxfile.close()
+        
+
+    if conf.t.basetype=='php' or conf.t.basetype=='tex' or conf.t.basetype=='html':
+
+        fileext='.'+conf.t.basetype
+
+        # These should not be neccesary to set, as they depend on
+        # reStructuredTex, so they are impossible to change
+        # Still needed for printing the code
+        conf.t.hb='<H2>'
+        conf.t.he='</H2>'
+
+        print "Creating list of files"
+        # Search the Contents files for all files to process
+        allfiles=[]
+        lookupsubdir={}
+
+        for fname in conf.t.indexfiles:
+            P=ContentsPrinter(conf,fname)
+            # Create list of files with subdir appended	
+            subdir,fname=os.path.split(fname)
+
+            for name in P.files:
+                if not name in conf.g.ignorelist:
+                    allfiles.append(os.path.join(subdir,name))
+                    lookupsubdir[name]=subdir
+                else:
+                    print '   IGNORING ',name
 
         conf.lookupsubdir=lookupsubdir
 
@@ -2193,12 +2227,53 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
                             endpos=buf.find('\n',pos)
                             print '   ',buf[pos:endpos]
 
+    if conf.t.basetype=='octpkg':
+        f=open(os.path.join(conf.t.confdir,'DESCRIPTION'))
+        buf=f.read()
+        f.close()
+
+        now = datetime.datetime.now()
+        date="%s-%s-%s" % (now.year,now.month,now.day)
+
+        f=open(os.path.join(conf.t.dir,'DESCRIPTION'),'w')
+        f.write(buf.format(VERSION=conf.g.version,DATE=date))
+        f.close()
+
+        pkgroot=os.path.join(conf.t.dir,conf.g.projectname)
+        safe_mkdir(pkgroot)
+        rmrf(pkgroot)
+
+        # Copy files from the mat2doc configuration directory to the
+        # base package directory
+        shutil.copy(os.path.join(conf.t.dir,'DESCRIPTION'),pkgroot)
+        shutil.copy(os.path.join(conf.t.dir,'INDEX'),pkgroot)
+
+        s=os.path.join(conf.t.confdir,'PKG_ADD')
+        if os.path.exists(s):
+            shutil.copy(s,pkgroot)
+
+        s=os.path.join(conf.t.confdir,'PKG_DEL')
+        if os.path.exists(s):
+            shutil.copy(s,pkgroot)
+
+        inst=os.path.join(pkgroot,'inst')
+        safe_mkdir(inst)
+        rmrf(inst)
+
+        # Copy all the files in the package to the inst dir
+        os.system('cp -R '+conf.t.codedir+'/* '+inst)
+            
+        # Move the necessary files down in the file hirachy to the base dir
+        shutil.move(os.path.join(inst,'NEWS'),pkgroot)
+        shutil.move(os.path.join(inst,'COPYING'),pkgroot)
+        shutil.move(os.path.join(inst,'CITATION'),pkgroot)
+
 
 # ------------------ Run the program from the command line -------------
 
 # Parse the command line options
 parser = argparse.ArgumentParser(description='The mat2doc documentation generator.')
-parser.add_argument('target', choices=['mat','html','php','tex'],
+parser.add_argument('target', choices=['mat','html','php','tex','octpkg'],
                     help='Output target')
 parser.add_argument('filename', help='File or directory to process', default='')
 
