@@ -1246,8 +1246,8 @@ class ExecPrinter(BasePrinter):
                     userError('The function %s listed in "See also" cannot be found' % see)
             else:
                 obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
-                            self.c.lookupsubdir[see]+'/'+see+self.c.t.fext+'",')
-            
+                            posixpath.join(self.c.lookupsubdir[see],see+self.c.t.fext)+'",')
+                
         obuf.append(');')
 
         
