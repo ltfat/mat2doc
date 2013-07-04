@@ -1179,10 +1179,13 @@ class ExecPrinter(BasePrinter):
                 if pos==-1:
                     break
                 endpos=secondpart.find(']',pos)
-                keystring=secondpart[pos+5:endpos].strip()
-                if keystring[-1]=='=':
-                    secondpart=secondpart[:pos]+"'"+keystring[:-1]+"',"+secondpart[endpos:]
+                eqpos=secondpart.find('=',pos)
+                if eqpos>-1 and eqpos<endpos:
+                    # There is a "=" and an optional argument
+                    keystring=secondpart[pos+5:eqpos].strip()
+                    secondpart=secondpart[:pos]+"'"+keystring+"',"+secondpart[eqpos+1:]
                 else:
+                    keystring=secondpart[pos+5:endpos].strip()
                     secondpart=secondpart[:pos]+"'"+keystring+"'"+secondpart[endpos:]
 
 
@@ -1884,6 +1887,14 @@ def print_matlab(conf,ifilename,ofilename):
             nfig+=1
 
             continue
+        
+        # Just skip the image, and keep on skipping until we hit a
+        # blank line, and eat that also to avoid two consequitive empty lines
+        if '.. image::' in line:
+            while len(line[1:].strip())>0:
+                line=ibuf.pop()
+            line=ibuf.pop()
+            continue
 
         # remove the display math sections. FIXME: This will not
         # correctly handle display math in nested environments.
@@ -1894,6 +1905,8 @@ def print_matlab(conf,ifilename,ofilename):
             while len(line[1:].strip())>0:
                 line=ibuf.pop()
 
+            # Eat the empty line following the math formula to avoid consequitive empty lines
+            line=ibuf.pop()
             continue
 
         # Handle comments: No substitutions must be made in
