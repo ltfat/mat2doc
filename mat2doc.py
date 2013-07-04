@@ -1110,14 +1110,27 @@ class ExecPrinter(BasePrinter):
             # Transform list definitions and formulae
             if len(line)>2 and line[2]=="'":
                 line=re.sub("  '","--Q",line)
-                line=re.sub("',","Q ",line)
-                line=re.sub("' ","Q ",line)
+                # Look for the ending of the key, and move the
+                # value (if the is one) one space to the left
+                
+                pos=line.find("',")
+                if pos>-1:
+                    endpos=line.find("  ",pos)
+                    # We found two spaces, move the value
+                    if endpos>-1:
+                        line=line[:pos]+'='+line[pos+2:endpos]+' '+line[endpos:]
+                    else:
+                        # The is not two spaces, the description is on
+                        # the following lines
+                        line=line[:pos]+'='+line[pos+2:]
+                else:
+                    line=re.sub("' ","  ",line)
 
-            if len(line)>2 and line[2]=="`":
-                line=re.sub("  `","--X",line)
-                line=re.sub("`,","X ",line)
-                line=re.sub("` ","X ",line)
-                line=re.sub("\.","X",line)
+            #if len(line)>2 and line[2]=="`":
+            #    line=re.sub("  `","--X",line)
+            #    line=re.sub("`,","X ",line)
+            #    line=re.sub("` ","X ",line)
+            #    line=re.sub("\.","X",line)
 
 
             # Substite the correct formula code
@@ -1148,27 +1161,29 @@ class ExecPrinter(BasePrinter):
 
         if self.c.t.basetype=='php' or self.c.t.basetype=='html':
             firstpart =re.sub("--Q=","",firstpart)
-            secondpart=re.sub("--Q","'",secondpart)
-            secondpart=re.sub("Q ","',",secondpart)
-            secondpart=re.sub("Q<","'<",secondpart)
+            while 1:
+                pos=secondpart.find("--Q")
+                if pos==-1:
+                    break
+                endpos=secondpart.find('<',pos)
+                keystring=secondpart[pos+3:endpos].strip()
+                if keystring[-1]=='=':
+                    secondpart=secondpart[:pos]+"'"+keystring[:-1]+"',"+secondpart[endpos:]
+                else:
+                    secondpart=secondpart[:pos]+"'"+keystring+"'"+secondpart[endpos:]
 
         if self.c.t.basetype=='tex':
             firstpart =re.sub("-{}-Q=","",firstpart)
-            secondpart=re.sub("-{}-Q","'",secondpart)
-            secondpart=re.sub("Q ","',",secondpart)
-            secondpart=re.sub("Q]","']",secondpart)
-
-        if self.c.t.basetype=='php' or self.c.t.basetype=='html':
-            firstpart =re.sub("--X=","",firstpart)
-            secondpart=re.sub("--X","'",secondpart)
-            secondpart=re.sub("X ","',",secondpart)
-            secondpart=re.sub("X<","'<",secondpart)
-
-        if self.c.t.basetype=='tex':
-            firstpart =re.sub("-{}-X=","",firstpart)
-            secondpart=re.sub("-{}-X","'",secondpart)
-            secondpart=re.sub("X ","',",secondpart)
-            secondpart=re.sub("X]","']",secondpart)
+            while 1:
+                pos=secondpart.find("-{}-Q")
+                if pos==-1:
+                    break
+                endpos=secondpart.find(']',pos)
+                keystring=secondpart[pos+5:endpos].strip()
+                if keystring[-1]=='=':
+                    secondpart=secondpart[:pos]+"'"+keystring[:-1]+"',"+secondpart[endpos:]
+                else:
+                    secondpart=secondpart[:pos]+"'"+keystring+"'"+secondpart[endpos:]
 
 
         buf = firstpart+secondpart
@@ -2175,6 +2190,17 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
                 P=matfile_factory(conf,fname)
                 P.write_the_file()
 
+        # Post-stuff, copy the images directory
+        if conf.t.basetype=='php' or conf.t.basetype=='html' or conf.t.basetype=='tex':
+            originimages=os.path.join(confdir,'images')
+            print originimages
+            if os.path.exists(originimages):
+                targetimages=os.path.join(conf.t.dir,'images')
+                rmrf(targetimages)
+                safe_rmdir(targetimages)
+                shutil.copytree(originimages,targetimages)
+            
+
         # Post-stuff, copy the include directory
         if conf.t.basetype=='html':
             targetinc=os.path.join(conf.t.dir,'include')
@@ -2267,6 +2293,25 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
         shutil.move(os.path.join(inst,'NEWS'),pkgroot)
         shutil.move(os.path.join(inst,'COPYING'),pkgroot)
         shutil.move(os.path.join(inst,'CITATION'),pkgroot)
+
+        # Copy the post_build script, do name substitution and execute it
+        f=open(os.path.join(conf.t.confdir,'post_build.sh'))
+        buf=f.read()
+        f.close()
+
+        s=os.path.join(conf.t.dir,'post_build.sh')
+        f=open(s,'w')
+        f.write(buf.format(VERSION=conf.g.version,INST=inst,CONFDIR=conf.t.confdir))
+        f.close()
+
+        # Better option would be to use os.chmod
+        os.system('chmod a+x '+s)
+        os.system(s)
+
+        # Pack it up, better option would be the tarfile module
+        s='cd '+conf.t.dir+'; tar zcvf '+conf.g.projectname+'-'+conf.g.version+'.tar.gz '+conf.g.projectname
+        print s
+        os.system(s)
 
 
 # ------------------ Run the program from the command line -------------
