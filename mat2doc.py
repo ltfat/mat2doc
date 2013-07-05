@@ -245,19 +245,24 @@ def findMat2docDir(searchdir):
 
 # ------------------ version control export routines ----------------------
 
-def gitAutoStage(repo):
+def gitAutoStage(executer,repo):
     # This command explicitly swicthes working directory to the
     # repository, otherwise git will think that the directory is
     # empty, and stage all files for removal.
-    s = 'cd '+repo+'; git add -u'
-    os.system(s)
+    oldcwd=os.getcwd()
+    os.chdir(repo)
+    executer('add -u')
+    #s = 'cd '+repo+'; git add -u'
+    #os.system(s)
+    os.chdir(oldcwd)
 
-def gitStageExport(repo,outputtargetdir):
+def gitStageExport(executer,repo,outputtargetdir):
     rmrf(outputtargetdir)
     s=os.path.join(repo,'.git')
-    os.system('git --git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
+    executer('--git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
+    #os.system('git --git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
 
-def svnExport(repo,outputtargetdir):
+def svnExport(executer,repo,outputtargetdir):
     rmrf(outputtargetdir)
     os.system('svn export --force '+repo+' '+outputtargetdir)
 
@@ -268,17 +273,16 @@ def detectVersionControl(projectdir):
         return 'git'
     return 'none'
 
-def matExport(projectdir,outputtargetdir):
-    vctype=detectVersionControl(projectdir)
-    if vctype=='git':
-        gitAutoStage(projectdir)
-        gitStageExport(projectdir,outputtargetdir)
+def matExport(conf):
+    if conf.g.vctype=='git':
+        gitAutoStage(conf.g.vcexecuter,conf.g.projectdir)
+        gitStageExport(conf.g.vcexecuter,conf.g.projectdir,conf.t.dir)
 
-    if vctype=='svn':
-        svnExport(projectdir,outputtargetdir)
+    if conf.g.vctype=='svn':
+        svnExport(conf.g.vcexecuter,conf.g.projectdir,conf.t.dir)
 
     # Remove the mat2doc directory that just got copied/exported
-    s=os.path.join(outputtargetdir,'mat2doc')
+    s=os.path.join(conf.t.dir,'mat2doc')
     rmrf(s)
     os.rmdir(s)
 
@@ -442,6 +446,19 @@ class ConfType:
             for k, v in newlocals.items():
                 setattr(self, k, v)        
 
+        s=os.path.join(self.confdir,'confshadow.py')
+
+        if os.path.exists(s):
+            newlocals=locals()
+            
+            execfile(s,globals(),newlocals)
+
+            # Update the object with the dictionary of keys read from
+            # the configuration file
+            for k, v in newlocals.items():
+                setattr(self, k, v)        
+
+
 class GlobalConf(ConfType):
     def __init__(self,confdir,projectname,projectdir):
         ConfType.__init__(self,confdir)
@@ -470,6 +487,26 @@ class GlobalConf(ConfType):
             else:
                 userError('File %s speficied in the global conf.py is missing.' % s)
             
+        # Setup the program used for plotting
+        s=getattr(self,'plotengine','matlab')
+        if s=='matlab':
+            self.plotexecuter=MatlabExecuter(getattr(self,'matlabexec','matlab'))
+        else:
+            self.plotexecuter=OctaveExecuter(getattr(self,'octaveexec','octave'))
+
+        # Detect the version control system of the project, and setup the executer
+        self.vctype=detectVersionControl(projectdir)
+        if self.vctype=='git':
+            self.vcexecuter=GitExecuter(getattr(self,'gitexec','git'))
+        if self.vctype=='svn':
+            self.vcexecuter=SvnExecuter(getattr(self,'svnexec','git'))
+
+        # Set default values of optional parameters
+        self.autostage=getattr(self,'autostage',True)
+        self.author   =getattr(self,'author','')
+        self.year     =getattr(self,'year',datetime.datetime.now().year)
+        
+
 
 class TargetConf(ConfType):    
     bibstyle='abbrv'
@@ -488,7 +525,7 @@ class TargetConf(ConfType):
         if not self.urlbase[-1]=='/':
             self.urlbase+='/'
 
-        self.bibexecuter=Bibtex2htmlExecuter('bibtex2html',g.tmpdir,g.bibfile,self.bibstyle)
+        self.bibexecuter=Bibtex2htmlExecuter(getattr(self,'bibtex2htmlexec','bibtex2html'),g.tmpdir,g.bibfile,self.bibstyle)
 
 
  # This is the class from which TeX configuration should be derived.
@@ -732,7 +769,7 @@ class MatConf(TargetConf):
                              VERSION=g.version,
                              YEAR=g.year)
 
-        self.lynxexecuter=LynxExecuter('lynx')
+        self.lynxexecuter=LynxExecuter(getattr(self,'lynxexec','lynx'))
 
 
  # This is the class from which Octave package configuration should be derived.
@@ -1729,7 +1766,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         safewrite(tmpname,obuf)
 
-        if plotexecuter.name=='octave':
+        if plotexecuter.name=='Octave':
            s=tmpname
         else:
            s='-r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
@@ -2052,8 +2089,6 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
 
     conf.g.execplot=do_execplot
 
-    conf.g.plotexecuter=MatlabExecuter('matlab')
-
     # Target
     if target=='php':
         conf.t=PhpConf(conf.g)
@@ -2225,7 +2260,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
 
     if conf.t.basetype=='mat':
           
-        matExport(projectdir,conf.t.dir)
+        matExport(conf)
 
         for root, dirs, files in os.walk(conf.t.dir, topdown=False):
             # Walk through the .m files
@@ -2331,9 +2366,10 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
 
 # Parse the command line options
 parser = argparse.ArgumentParser(description='The mat2doc documentation generator.')
+parser.add_argument('filename', help='File or directory to process', default='')
+
 parser.add_argument('target', choices=['mat','html','php','tex','octpkg'],
                     help='Output target')
-parser.add_argument('filename', help='File or directory to process', default='')
 
 parser.add_argument('-q', '--quiet',
                   action="store_false", dest='verbose', default=True,
