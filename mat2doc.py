@@ -34,11 +34,22 @@ class ProgramExecuter:
         self.path=path
 
     def executeRaw(self,s):
-        finals=self.path+' '+s
-        P=Popen(finals,shell=True,stdout=PIPE,stderr=PIPE)
+        debug=0
+        if isinstance(s,str):
+            finals=[self.path,s]
+        else:
+            finals=[self.path]
+            finals.extend(s)
+        if debug:
+            print "-------------------------------------------------------"
+            print finals
+        P=Popen(finals,stdout=PIPE,stderr=PIPE)
         code=P.wait()
         output=P.stdout.read()
         errput=P.stderr.read()
+        if debug:
+            print output
+            print errput
         
         return(output,errput,code)
 
@@ -98,9 +109,16 @@ class LynxExecuter(ProgramExecuter):
     def __call__(self,outname):
         self.test()    
 
-        s='-dump '+outname+'.html > '+outname+'.txt'
+        s=['-dump',outname+'.html']
 
         (output,errput,code)=self.executeRaw(s)
+
+        # There has to be an easier way: Currently we write the unsafe
+        # "output" buffer to a file, just to be able to read it in
+        # again using safereadlines
+        f=open(outname+'.txt','w')
+        f.write(output)
+        f.close()
 
         buf=safereadlines(outname+'.txt')        
         buf=map(lambda x:x.strip(),buf)
@@ -125,7 +143,9 @@ class Bibtex2htmlExecuter(ProgramExecuter):
 
         safewritelines(outname,reflist)
 
-        s='--warn-error --no-abstract --no-keys --no-keywords --nodoc --nobibsource --no-header --citefile '+outname+' -s '+self.bibstyle+' --output '+outname+' '+self.bibfile+'.bib'
+        s=['--warn-error','--no-abstract','--no-keys','--no-keywords',
+           '--nodoc','--nobibsource','--no-header','--citefile',outname,
+           '-s',self.bibstyle,'--output',outname,self.bibfile+'.bib']
 
         (output,errput,code)=self.executeRaw(s)
         if not code==0:
@@ -251,7 +271,7 @@ def gitAutoStage(executer,repo):
     # empty, and stage all files for removal.
     oldcwd=os.getcwd()
     os.chdir(repo)
-    executer('add -u')
+    executer(['add','-u'])
     #s = 'cd '+repo+'; git add -u'
     #os.system(s)
     os.chdir(oldcwd)
@@ -259,7 +279,7 @@ def gitAutoStage(executer,repo):
 def gitStageExport(executer,repo,outputtargetdir):
     rmrf(outputtargetdir)
     s=os.path.join(repo,'.git')
-    executer('--git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
+    executer(['--git-dir='+s,'checkout-index','--prefix='+outputtargetdir+os.sep,'-a'])
     #os.system('git --git-dir='+s+' checkout-index --prefix='+outputtargetdir+os.sep+' -a')
 
 def svnExport(executer,repo,outputtargetdir):
