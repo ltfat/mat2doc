@@ -47,9 +47,10 @@ class ProgramExecuter:
         if debug:
             print "-------------------------------------------------------"
 
+        (output,errput)=P.communicate()
         code=P.wait()
-        output=P.stdout.read()
-        errput=P.stderr.read()
+        #output=P.stdout.read()
+        #errput=P.stderr.read()
         if debug:
             print "-------------------------------------------------------"
 
@@ -90,11 +91,11 @@ class MatlabExecuter(ProgramExecuter):
     
     name='Matlab'
     teststring='-h'
-    matchstring='Usage:  matlab'
+    matchstring='nosplash'
 
     def __call__(self,s):
         self.test()
-        (output,errput,code)=self.executeRaw('-nodesktop -nodisplay '+s)
+        (output,errput,code)=self.executeRaw(['-nodesktop','-nodisplay']+s)
         return output
 
 class OctaveExecuter(ProgramExecuter):
@@ -134,11 +135,12 @@ class LynxExecuter(ProgramExecuter):
         # There has to be an easier way: Currently we write the unsafe
         # "output" buffer to a file, just to be able to read it in
         # again using safereadlines
-        f=open(outname+'.txt','w')
-        f.write(output)
-        f.close()
-
-        buf=safereadlines(outname+'.txt')        
+        #f=open(outname+'.txt','w')
+        #f.write(output)
+        #f.close()
+        buf=output.decode(encoding='latin1').split('\n')
+        print buf
+        #buf=safereadlines(outname+'.txt')        
         buf=map(lambda x:x.strip(),buf)
 
         return buf
@@ -1808,7 +1810,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         if plotexecuter.name=='Octave':
            s=tmpname
         else:
-           s='-r "addpath \''+tmpdir+'\'; '+tmpfile+';"'    
+           s=['-r','"addpath \''+tmpdir+'\'; '+tmpfile+';"']   
 
         print '   Producing '+outprefix+' using '+plotexecuter.name
 
