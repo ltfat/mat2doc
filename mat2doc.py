@@ -34,7 +34,7 @@ class ProgramExecuter:
         self.path=path
 
     def executeRaw(self,s):
-        debug=0
+        debug=1
         if isinstance(s,str):
             finals=[self.path,s]
         else:
@@ -44,9 +44,15 @@ class ProgramExecuter:
             print "-------------------------------------------------------"
             print finals
         P=Popen(finals,stdout=PIPE,stderr=PIPE)
+        if debug:
+            print "-------------------------------------------------------"
+
         code=P.wait()
         output=P.stdout.read()
         errput=P.stderr.read()
+        if debug:
+            print "-------------------------------------------------------"
+
         if debug:
             print output
             print errput
@@ -105,12 +111,24 @@ class LynxExecuter(ProgramExecuter):
     
     name='Lynx'
     matchstring='cookies'
+	
+    def __init__(self,path,directorypath):
+        self.directorypath=directorypath
+        ProgramExecuter.__init__(self,path)
+	
+    def executeRaw(self,s):
+        oldcwd=os.getcwd()
+        os.chdir(self.directorypath)
+        print 11111111,os.getcwd()
+        (output,errput,code)=ProgramExecuter.executeRaw(self,s)
+        os.chdir(oldcwd)
+		
+        return (output,errput,code)
 
     def __call__(self,outname):
         self.test()    
 
         s=['-dump',outname+'.html']
-
         (output,errput,code)=self.executeRaw(s)
 
         # There has to be an easier way: Currently we write the unsafe
@@ -545,7 +563,7 @@ class TargetConf(ConfType):
         if not self.urlbase[-1]=='/':
             self.urlbase+='/'
 
-        self.bibexecuter=Bibtex2htmlExecuter(getattr(self,'bibtex2htmlexec','bibtex2html'),g.tmpdir,g.bibfile,self.bibstyle)
+        self.bibexecuter=Bibtex2htmlExecuter(getattr(g,'bibtex2htmlexec','bibtex2html'),g.tmpdir,g.bibfile,self.bibstyle)
 
 
  # This is the class from which TeX configuration should be derived.
@@ -789,7 +807,8 @@ class MatConf(TargetConf):
                              VERSION=g.version,
                              YEAR=g.year)
 
-        self.lynxexecuter=LynxExecuter(getattr(self,'lynxexec','lynx'))
+        self.lynxexecuter=LynxExecuter(getattr(g,'lynxexec','lynx'),
+                                       getattr(g,'lynxdir',os.getcwd()))
 
 
  # This is the class from which Octave package configuration should be derived.
