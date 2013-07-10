@@ -34,7 +34,7 @@ class ProgramExecuter:
         self.path=path
 
     def executeRaw(self,s):
-        debug=1
+        debug=0
         if isinstance(s,str):
             finals=[self.path,s]
         else:
@@ -105,7 +105,7 @@ class OctaveExecuter(ProgramExecuter):
 
     def __call__(self,s):
         self.test()    
-        (output,errput,code)=self.executeRaw('-q '+s)
+        (output,errput,code)=self.executeRaw(['-q']+s)
         return output
 
 class LynxExecuter(ProgramExecuter):
@@ -120,7 +120,6 @@ class LynxExecuter(ProgramExecuter):
     def executeRaw(self,s):
         oldcwd=os.getcwd()
         os.chdir(self.directorypath)
-        print 11111111,os.getcwd()
         (output,errput,code)=ProgramExecuter.executeRaw(self,s)
         os.chdir(oldcwd)
 		
@@ -138,8 +137,8 @@ class LynxExecuter(ProgramExecuter):
         #f=open(outname+'.txt','w')
         #f.write(output)
         #f.close()
-        buf=output.decode(encoding='latin1').split('\n')
-        print buf
+        #buf=output.decode(encoding='latin1').split('\n')
+        buf=output.decode(encoding='utf-8').split('\n')
         #buf=safereadlines(outname+'.txt')        
         buf=map(lambda x:x.strip(),buf)
 
@@ -1808,7 +1807,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         safewrite(tmpname,obuf)
 
         if plotexecuter.name=='Octave':
-           s=tmpname
+           s=['--path',tmpdir,tmpname]   
         else:
            s=['-r','"addpath \''+tmpdir+'\'; '+tmpfile+';"']   
 
@@ -2116,7 +2115,7 @@ def find_indent(line):
         ii=ii+1
     return ii
 
-def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=True):
+def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     target=targetname
     confdir=os.path.join(projectdir,'mat2doc')
@@ -2402,6 +2401,20 @@ def printdoc(projectname,projectdir,targetname,rebuildmode='auto',do_execplot=Tr
         print s
         os.system(s)
 
+    # ---------- post package generation -------------
+
+    if args.script:
+        s=os.path.join(conf.t.confdir,args.script)
+
+        newlocals=locals()        
+        execfile(s,globals(),newlocals)        
+
+    if args.upload:
+        s=os.path.join(conf.t.confdir,'upload.py')
+
+        newlocals=locals()        
+        execfile(s,globals(),newlocals)
+
 
 # ------------------ Run the program from the command line -------------
 
@@ -2415,6 +2428,12 @@ parser.add_argument('target', choices=['mat','html','php','tex','octpkg'],
 parser.add_argument('-q', '--quiet',
                   action="store_false", dest='verbose', default=True,
                   help="don't print status messages to stdout")
+
+parser.add_argument('--upload',
+                  action="store_true", default=False,
+                  help="Run the upload script of the target")
+
+parser.add_argument('--script',help="Script to run after processing the files, but before uploading")
 
 # Mutually exclusive : --execplot and --no-execplot
 group1 = parser.add_mutually_exclusive_group()
@@ -2439,7 +2458,7 @@ if rebuildmode==None:
 # Locate the mat2doc configuration directory
 projectname,projectdir,confdir=findMat2docDir(args.filename)
 
-printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot)
+printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot,args)
 
 
 
