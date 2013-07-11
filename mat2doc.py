@@ -131,15 +131,7 @@ class LynxExecuter(ProgramExecuter):
         s=['-dump',outname+'.html']
         (output,errput,code)=self.executeRaw(s)
 
-        # There has to be an easier way: Currently we write the unsafe
-        # "output" buffer to a file, just to be able to read it in
-        # again using safereadlines
-        #f=open(outname+'.txt','w')
-        #f.write(output)
-        #f.close()
-        #buf=output.decode(encoding='latin1').split('\n')
         buf=output.decode(encoding='utf-8').split('\n')
-        #buf=safereadlines(outname+'.txt')        
         buf=map(lambda x:x.strip(),buf)
 
         return buf
@@ -392,8 +384,6 @@ def call_rst(instring,outtype):
     writernames['html']='html'
     writernames['tex']='latex2e'
 
-    #instring+='CLOSETHEDAMMTHINGIE.\n'
-
     # Call rst2html or similar
     buf=docutils.core.publish_string(instring,writer_name=writernames[outtype],
                                      settings=None, settings_overrides=args)
@@ -434,7 +424,7 @@ def rst_postprocess(instr,outtype):
 
     return buf
 
-# ----------  Protection routines ---------------------------
+# ----------  Protection and substituion routines ---------------------------
 
 def protect_tex(line):
     # Protect characters so that they are not treated as special
@@ -458,6 +448,16 @@ def protect_html(line):
     line=line.replace('<','&lt;')
     line=line.replace('>','&gt;')
     
+    return line
+
+
+def subst_formula_rst(line):
+    # Substite the correct formula code
+    if '$' in line:
+        words=line.split('$')
+        line=words[0]
+        for ii in range((len(words)-1)/2):
+            line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]                
     return line
 
 # ------------ Configuration and output-producing object structure ---------------
@@ -1170,12 +1170,21 @@ class ExecPrinter(BasePrinter):
 
     def print_body(self,obuf):
 
+
+        # Pattern for identifying a struct definition at the beginning
+        # of a line followed by either at least two spaces or the end
+        # of the line.
+        structpattern=re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)(   *|$)')
+
         buf=self.parsed['body']
 
         # Initialize buffer
         buf_to_rst=u''
 
-        for line in buf:
+        buf.reverse()
+
+        while len(buf)>0:
+            line=buf.pop()
             s=line.strip()
             if s=='':
                 buf_to_rst+=u'\n'
@@ -1184,7 +1193,7 @@ class ExecPrinter(BasePrinter):
             # The techniques used below are quite unsafe, because they
             # will trigger for any line opening with ' or ` 
 
-            # Transform list definitions and formulae
+            # Transform list definitions
             if len(line)>2 and line[2]=="'":
                 line=re.sub("  '","--Q",line)
                 # Look for the ending of the key, and move the
@@ -1203,20 +1212,23 @@ class ExecPrinter(BasePrinter):
                 else:
                     line=re.sub("' ","  ",line)
 
-            #if len(line)>2 and line[2]=="`":
-            #    line=re.sub("  `","--X",line)
-            #    line=re.sub("`,","X ",line)
-            #    line=re.sub("` ","X ",line)
-            #    line=re.sub("\.","X",line)
+            # Look for structure definition
+            if len(line)>2:
+                m=re.match(structpattern,s)
+                if m:
+                    g=m.groups()
+                    line='--X'+re.sub("\.","_DOT_",g[0])+g[1]+s[m.end():]
+                    buf_to_rst+=subst_formula_rst(line)+u'\n'
 
+                    # Pop the following lines until we hit an empty
+                    # line, and add the necessary spaces
+                    while len(buf)>0 and len(buf[-1].strip())>0:
+                        line=buf.pop()
+                        buf_to_rst+=subst_formula_rst('     '+line)+u'\n'
 
-            # Substite the correct formula code
-            if '$' in line:
-                words=line.split('$')
-                line=words[0]
-                for ii in range((len(words)-1)/2):
-                    line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]                
-            buf_to_rst+=line+u'\n'
+                    continue
+
+            buf_to_rst+=subst_formula_rst(line)+u'\n'
 
         
         # Uncomment this to print the raw reStructuredText input
@@ -1248,6 +1260,15 @@ class ExecPrinter(BasePrinter):
                     secondpart=secondpart[:pos]+"'"+keystring[:-1]+"',"+secondpart[endpos:]
                 else:
                     secondpart=secondpart[:pos]+"'"+keystring+"'"+secondpart[endpos:]
+
+            while 1:
+                pos=secondpart.find("--X")
+                if pos==-1:
+                    break
+                endpos=secondpart.find('<',pos)
+                keystring=secondpart[pos+3:endpos].strip()
+                secondpart=secondpart[:pos]+re.sub("_DOT_",".",keystring)+secondpart[endpos:]
+
 
         if self.c.t.basetype=='tex':
             firstpart =re.sub("-{}-Q=","",firstpart)
@@ -1589,14 +1610,7 @@ class ContentsPrinter(BasePrinter):
                 ul_on=0
 
             if line[0]=='text':
-                # Substite the correct formula code
-                if '$' in line[1]:
-                    words=line[1].split('$')
-                    line[1]=words[0]
-                    for ii in range((len(words)-1)/2):
-                        line[1]+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]
-
-                maincontents.append(line[1])
+                maincontents.append(subst_formula_rst(line[1]))
                 continue
 
             if line[0]=='caption':
