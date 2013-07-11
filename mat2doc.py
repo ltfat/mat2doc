@@ -371,7 +371,9 @@ def call_rst(instring,outtype):
     if outtype=='php' or outtype=='html':
         args = {
             'math_output' : 'MathJax',
-            'initial_header_level' : 2
+            'initial_header_level' : 2,
+            'option_limit' : 20,
+            'field_limit' : 20,
             }
     else:
         args = {
@@ -1174,7 +1176,7 @@ class ExecPrinter(BasePrinter):
         # Pattern for identifying a struct definition at the beginning
         # of a line followed by either at least two spaces or the end
         # of the line.
-        structpattern=re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)(   *|$)')
+        structpattern=re.compile(r'(([a-zA-Z_][a-zA-Z0-9_]*)?\.[a-zA-Z_][a-zA-Z0-9_]*)(   *|$)')
 
         buf=self.parsed['body']
 
@@ -1216,8 +1218,14 @@ class ExecPrinter(BasePrinter):
             if len(line)>2:
                 m=re.match(structpattern,s)
                 if m:
+                    # The pattern produces three groups:
+                    # 0) The total match of the identifier (output.data)
+                    # 1) The part before the "." (so "output") or None
+                    # 2) The whitespace
                     g=m.groups()
-                    line='--X'+re.sub("\.","_DOT_",g[0])+g[1]+s[m.end():]
+                    #print "===== >>>>",g[0],'+++',g[2]
+                    #print g
+                    line='--X'+re.sub("\.","_DOT_",g[0])+g[2]+s[m.end():]
                     buf_to_rst+=subst_formula_rst(line)+u'\n'
 
                     # Pop the following lines until we hit an empty
