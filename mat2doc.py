@@ -1609,7 +1609,7 @@ class ContentsPrinter(BasePrinter):
                     maincontents.append('')
                     ul_on=1
 
-                maincontents.append('  * |'+line[1]+'| - '+line[2])
+                maincontents.append('* |'+line[1]+'| - '+line[2])
                 continue
 
             # Turn of list mode, we have encountered a non-list line
