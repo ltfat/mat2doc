@@ -2,6 +2,7 @@
 
 import sys,os,os.path,string,re,codecs,shutil,posixpath,datetime
 import argparse
+import distutils.dir_util
 from subprocess import *
 
 from pygments import highlight
@@ -24,11 +25,26 @@ def userError(s):
 
 # ----------------- Executing programs -------------------------------------
 
+# Return a program executer. This routine handles only the simple
+# cases, where no extra arguments are needed for contruction, and
+# takes a pointer to the global configuration.
+def executerFactory(g,programname):
+        
+    # Simple stuff
+    executers={'git':GitExecuter,
+               'svn':SvnExecuter,
+               'matlab':MatlabExecuter,
+               'octave':OctaveExecuter}
+    
+    return executers[programname](getattr(g,programname+'exec',programname))
+    
+
 class ProgramExecuter:
     checked=0
 
     teststring='--help'
     matchstring='usage:'
+    useshell=True
 
     def __init__(self,path):
         self.path=path
@@ -43,14 +59,23 @@ class ProgramExecuter:
         if debug:
             print "-------------------------------------------------------"
             print finals
-        P=Popen(finals,stdout=PIPE,stderr=PIPE)
+
+        if self.useshell:
+            P=Popen(' '.join(finals),shell=True,stdout=PIPE,stderr=PIPE)
+        else:
+            P=Popen(finals,stdout=PIPE,stderr=PIPE)
+
         if debug:
             print "-------------------------------------------------------"
 
         (output,errput)=P.communicate()
         code=P.wait()
+
+        #Old code, communicate seems to work better.
+        #code=P.wait()
         #output=P.stdout.read()
         #errput=P.stderr.read()
+
         if debug:
             print "-------------------------------------------------------"
 
@@ -329,16 +354,17 @@ def saferead(filename):
 
     return buf
 
-def safewrite(filename,buf):
+def safewrite(filename,buf,lineendings='unix'):
 
-    #f.write(unicode(line+'\n','latin-1'))
-            
     # Extra characters seems to be produced when writing the empty
     # string using the utf-8 encoding
     if buf=='':
         f=file(filename,'w')
     else:
         f=codecs.open(filename,'w',encoding="utf-8")
+
+    if lineendings=='dos':
+        buf=re.compile('\n').sub('\r\n', buf)
 
     f.write(buf)
     f.close()
@@ -353,10 +379,10 @@ def safereadlines(filename):
 
     return linebuf
     
-def safewritelines(filename,buf):
+def safewritelines(filename,buf,lineendings='unix'):
         
     s=u'\n'.join(buf)+u'\n'
-    safewrite(filename,s)
+    safewrite(filename,s,lineendings)
 
 # --------- Calling reStructuredText ---------------------------------
 
@@ -530,17 +556,11 @@ class GlobalConf(ConfType):
             
         # Setup the program used for plotting
         s=getattr(self,'plotengine','matlab')
-        if s=='matlab':
-            self.plotexecuter=MatlabExecuter(getattr(self,'matlabexec','matlab'))
-        else:
-            self.plotexecuter=OctaveExecuter(getattr(self,'octaveexec','octave'))
+        self.plotexecuter=executerFactory(self,s)
 
         # Detect the version control system of the project, and setup the executer
         self.vctype=detectVersionControl(projectdir)
-        if self.vctype=='git':
-            self.vcexecuter=GitExecuter(getattr(self,'gitexec','git'))
-        if self.vctype=='svn':
-            self.vcexecuter=SvnExecuter(getattr(self,'svnexec','git'))
+        self.vcexecuter=executerFactory(self,self.vctype)
 
         # Set default values of optional parameters
         self.autostage=getattr(self,'autostage',True)
@@ -567,6 +587,7 @@ class TargetConf(ConfType):
             self.urlbase+='/'
 
         self.bibexecuter=Bibtex2htmlExecuter(getattr(g,'bibtex2htmlexec','bibtex2html'),g.tmpdir,g.bibfile,self.bibstyle)
+
 
 
  # This is the class from which TeX configuration should be derived.
@@ -1176,7 +1197,7 @@ class ExecPrinter(BasePrinter):
         # Pattern for identifying a struct definition at the beginning
         # of a line followed by either at least two spaces or the end
         # of the line.
-        structpattern=re.compile(r'(([a-zA-Z_][a-zA-Z0-9_]*)?\.[a-zA-Z_][a-zA-Z0-9_]*)(   *|$)')
+        structpattern=re.compile(r'  (([a-zA-Z_][a-zA-Z0-9_]*)?\.[a-zA-Z_][a-zA-Z0-9_]*)(   *|$)')
 
         buf=self.parsed['body']
 
@@ -1188,15 +1209,16 @@ class ExecPrinter(BasePrinter):
         while len(buf)>0:
             line=buf.pop()
             s=line.strip()
+
             if s=='':
                 buf_to_rst+=u'\n'
                 continue
 
             # The techniques used below are quite unsafe, because they
-            # will trigger for any line opening with ' or ` 
+            # will trigger for any line opening with "  '"
 
             # Transform list definitions
-            if len(line)>2 and line[2]=="'":
+            if len(line)>2 and line[0:3]=="  '":
                 line=re.sub("  '","--Q",line)
                 # Look for the ending of the key, and move the
                 # value (if the is one) one space to the left
@@ -1216,7 +1238,7 @@ class ExecPrinter(BasePrinter):
 
             # Look for structure definition
             if len(line)>2:
-                m=re.match(structpattern,s)
+                m=re.match(structpattern,line)
                 if m:
                     # The pattern produces three groups:
                     # 0) The total match of the identifier (output.data)
@@ -1225,7 +1247,7 @@ class ExecPrinter(BasePrinter):
                     g=m.groups()
                     #print "===== >>>>",g[0],'+++',g[2]
                     #print g
-                    line='--X'+re.sub("\.","_DOT_",g[0])+g[2]+s[m.end():]
+                    line='--X'+re.sub("\.","_DOT_",g[0])+g[2]+line[m.end():]
                     buf_to_rst+=subst_formula_rst(line)+u'\n'
 
                     # Pop the following lines until we hit an empty
@@ -2117,7 +2139,7 @@ def print_matlab(conf,ifilename,ofilename):
 
     outbuf+=conf.t.footer
 
-    safewrite(ofilename,outbuf)
+    safewrite(ofilename,outbuf,conf.g.lineendings)
 
 
 # This factory function creates function or script file objects
@@ -2151,6 +2173,11 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     conf.g.execplot=do_execplot
 
+    if args.dos:
+        conf.g.lineendings='dos'
+    else:
+        conf.g.lineendings='unix'
+
     # Target
     if target=='php':
         conf.t=PhpConf(conf.g)
@@ -2174,37 +2201,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     safe_mkdir(conf.t.dir)
 
     # Copy the startup.m file to the temporary directory
-    shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)
-    
-    if conf.t.basetype=='octpkg':
-        print "Creating list of files"
-        # Search the Contents files for all files to process
-        allfiles=[]
-        lookupsubdir={}
-
-        # idxfile is used for creating a valid INDEX file for the
-        # Octave package system.
-        idxfile=open(os.path.join(conf.t.dir,'INDEX'),'w')
-        idxfile.write(conf.g.octtitle+'\n')
-        for fname in conf.t.indexfiles:
-            P=ContentsPrinter(conf,fname)
-            # Create list of files with subdir appended	
-            subdir,fname=os.path.split(fname)
-
-            if len(subdir)==0:
-                idxfile.write('base\n')
-            else:
-                idxfile.write(subdir+'\n')
-            for name in P.files:
-                if not name in conf.g.ignorelist:
-                    allfiles.append(os.path.join(subdir,name))
-                    lookupsubdir[name]=subdir
-                    idxfile.write(' '+name+'\n')
-                else:
-                    print '   IGNORING ',name
-
-        idxfile.close()
-        
+    shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)        
 
     if conf.t.basetype=='php' or conf.t.basetype=='tex' or conf.t.basetype=='html':
 
@@ -2363,7 +2360,40 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
                             endpos=buf.find('\n',pos)
                             print '   ',buf[pos:endpos]
 
-    if conf.t.basetype=='octpkg':
+    # ---------- post package generation -------------
+
+    if args.octpkg:
+        print "Creating an Octave package structure"
+
+        # Search the Contents files for all files to process
+        allfiles=[]
+        lookupsubdir={}
+
+        # idxfile is used for creating a valid INDEX file for the
+        # Octave package system.
+        idxfile=open(os.path.join(conf.t.dir,'INDEX'),'w')
+        idxfile.write(conf.g.octtitle+'\n')
+        for fname in conf.t.indexfiles:
+            P=ContentsPrinter(conf,fname)
+            # Create list of files with subdir appended	
+            subdir,fname=os.path.split(fname)
+
+            if len(subdir)==0:
+                idxfile.write('base\n')
+            else:
+                idxfile.write(subdir+'\n')
+            for name in P.files:
+                if not name in conf.g.ignorelist:
+                    allfiles.append(os.path.join(subdir,name))
+                    lookupsubdir[name]=subdir
+                    idxfile.write(' '+name+'\n')
+                else:
+                    print '   IGNORING ',name
+
+        idxfile.close()
+
+
+
         f=open(os.path.join(conf.t.confdir,'DESCRIPTION'))
         buf=f.read()
         f.close()
@@ -2423,13 +2453,18 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         print s
         os.system(s)
 
-    # ---------- post package generation -------------
 
     if args.script:
         s=os.path.join(conf.t.confdir,args.script)
 
         newlocals=locals()        
-        execfile(s,globals(),newlocals)        
+        execfile(s,globals(),newlocals)
+
+    if args.addon:
+        frompath=os.path.join(os.path.abspath(os.path.expanduser(
+getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
+        print "Adding contents of "+frompath
+        distutils.dir_util.copy_tree(frompath,conf.t.dir)
 
     if args.upload:
         s=os.path.join(conf.t.confdir,'upload.py')
@@ -2444,7 +2479,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 parser = argparse.ArgumentParser(description='The mat2doc documentation generator.')
 parser.add_argument('filename', help='File or directory to process', default='')
 
-parser.add_argument('target', choices=['mat','html','php','tex','octpkg'],
+parser.add_argument('target', choices=['mat','html','php','tex'],
                     help='Output target')
 
 parser.add_argument('-q', '--quiet',
@@ -2455,7 +2490,13 @@ parser.add_argument('--upload',
                   action="store_true", default=False,
                   help="Run the upload script of the target")
 
+parser.add_argument('--octpkg',
+                  action="store_true", default=False,
+                  help="Create an Octave package")
+
 parser.add_argument('--script',help="Script to run after processing the files, but before uploading")
+
+parser.add_argument('--addon',help="Directory to add to the package. See the 'addonbase' global setting")
 
 # Mutually exclusive : --execplot and --no-execplot
 group1 = parser.add_mutually_exclusive_group()
@@ -2470,6 +2511,12 @@ group2.add_argument("--rebuild", dest='rebuildmode', action="store_const",const=
                     help='Rebuild all files')
 group2.add_argument("--cached", dest='rebuildmode', action="store_const",const='cached',
                     help='Only use cached files, never build')
+
+# Mutually exclusive : --unix and --dos
+group3 = parser.add_mutually_exclusive_group()
+group3.add_argument("--unix", action="store_true", help='Produce output with Unix lineendings (default)')
+group3.add_argument("--dos",  action="store_true", help='Produce output with DOS lineendings')
+
 
 args = parser.parse_args()
 
