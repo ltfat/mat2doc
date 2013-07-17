@@ -1917,6 +1917,8 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
 
 def print_matlab(conf,ifilename,ofilename):
+
+    dooct=conf.g.args.octpkg
     ibuf=safereadlines(ifilename)
     outbuf=u''
 
@@ -1939,6 +1941,12 @@ def print_matlab(conf,ifilename,ofilename):
     nfig=1
 
     # Do the help section
+    if dooct:
+        outbuf+=u"%-*- texinfo -*-\n"
+        outbuf+=u"%@deftypefn {Function} "+name+"\n" 
+        outbuf+=u"%@verbatim\n" 
+        seealso=[]
+    
     while len(line)>0 and line[0]=='%' and len(ibuf)>0:
         if  'References:' in line:
             (dummy,sep,s) = line.partition(':')
@@ -2046,6 +2054,31 @@ def print_matlab(conf,ifilename,ofilename):
 
             continue
 
+        if dooct:
+            if 'See also' in line:
+                (dummy,sep,s) = line.partition(':')
+                if not(sep==':'):
+                    userError('In function %s: See also line must contain a :' % out['name'])
+
+                seealso=map(lambda x:x.strip(',').lower(),s.split())
+                while (len(ibuf)>0) and len(ibuf[-1][1:].strip())>0:
+                    line = ibuf.pop();
+                    seealso.extend(map(lambda x:x.strip(',').lower(),line.split()))
+
+                line=ibuf.pop()
+
+                continue
+
+            # Just add the demos to the see also
+            if 'Demos:'==line[1:].strip()[0:6]:
+                (dummy,sep,s) = line.partition(':')
+                seealso.extend(map(lambda x:x.strip(',').lower(),s.split()))
+
+                line=ibuf.pop()
+
+                continue
+
+
 
         # Keep all other lines.
         if len(line)>2:
@@ -2121,8 +2154,17 @@ def print_matlab(conf,ifilename,ofilename):
     # Find the name of the file + the subdir in the package 
     # Exclude the first slash in shortpath to not get a double slash, therefore the "+1"
     shortpath=ifilename[len(conf.t.dir)+1:-2]
-    outbuf+=u'%\n'
-    outbuf+=u'%   Url: '+conf.t.urlbase+shortpath+conf.t.urlext+'\n'
+    url=conf.t.urlbase+shortpath+conf.t.urlext
+    if dooct:        
+        outbuf+=u"%@end verbatim\n" 
+        outbuf+=u"%@strong{Url}: @url{"+url+"}\n"
+        if len(seealso)>0:
+            outbuf+=u"%@seealso{"+", ".join(seealso)+"}\n"
+        outbuf+=u"%@end deftypefn\n" 
+
+    else:
+        outbuf+=u'%\n'
+        outbuf+=u'%   Url: '+url+'\n'
     
     # --- Append header
     # Append empty line to seperate header from help section
@@ -2168,10 +2210,9 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     # Global
     conf.g=GlobalConf(confdir,projectname,projectdir)
-
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
-
     conf.g.execplot=do_execplot
+    conf.g.args=args
 
     if args.dos:
         conf.g.lineendings='dos'
