@@ -2459,9 +2459,12 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         if os.path.exists(s):
             shutil.copy(s,pkgroot)
 
-        s=os.path.join(conf.t.confdir,'PKG_DEL')
-        if os.path.exists(s):
-            shutil.copy(s,pkgroot)
+        # Disabled PKG_DEL seems to cause more trouble than it is
+        # worth.
+        if 0:    
+            s=os.path.join(conf.t.confdir,'PKG_DEL')
+            if os.path.exists(s):
+                shutil.copy(s,pkgroot)
 
         inst=os.path.join(pkgroot,'inst')
         safe_mkdir(inst)
