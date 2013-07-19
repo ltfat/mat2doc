@@ -835,16 +835,16 @@ class MatConf(TargetConf):
                                        getattr(g,'lynxdir',os.getcwd()))
 
 
- # This is the class from which Octave package configuration should be derived.
-class OctpkgConf:
-    basetype='octpkg'
-    fext='.m'
-
-    def __init__(self,g):        
-        self.confdir=os.path.join(g.confdir,self.basetype)
-
-        self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
-        self.codedir=os.path.join(g.outputdir,g.projectname+'-mat')
+# This is the class from which Octave package configuration should be derived.
+#class OctpkgConf:
+#    basetype='octpkg'
+#    fext='.m'
+#
+#    def __init__(self,g):        
+#        self.confdir=os.path.join(g.confdir,self.basetype)
+#
+#        self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
+#        self.codedir=os.path.join(g.outputdir,g.projectname+'-mat')
 
 
 # -----------------  Object structure for the parser -------------------------
@@ -1918,12 +1918,13 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
 def print_matlab(conf,ifilename,ofilename):
 
-    dooct=conf.g.args.octpkg
     ibuf=safereadlines(ifilename)
     outbuf=u''
 
     # Determine the name of the function
     name = os.path.basename(ifilename).split('.')[0]
+    
+    dooct=conf.g.args.octpkg and not name=='Contents'
 
     ibuf.reverse()
 
