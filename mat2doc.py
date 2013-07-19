@@ -5,6 +5,9 @@ import argparse
 import distutils.dir_util
 from subprocess import *
 
+# Remove when unix2dos has been converted to the new system
+import commands
+
 from pygments import highlight
 from pygments.lexers import MatlabLexer
 from pygments.formatters import HtmlFormatter
@@ -354,7 +357,7 @@ def saferead(filename):
 
     return buf
 
-def safewrite(filename,buf,lineendings='unix'):
+def safewrite(filename,buf):
 
     # Extra characters seems to be produced when writing the empty
     # string using the utf-8 encoding
@@ -362,9 +365,6 @@ def safewrite(filename,buf,lineendings='unix'):
         f=file(filename,'w')
     else:
         f=codecs.open(filename,'w',encoding="utf-8")
-
-    if lineendings=='dos':
-        buf=re.compile('\n').sub('\r\n', buf)
 
     f.write(buf)
     f.close()
@@ -379,10 +379,10 @@ def safereadlines(filename):
 
     return linebuf
     
-def safewritelines(filename,buf,lineendings='unix'):
+def safewritelines(filename,buf):
         
     s=u'\n'.join(buf)+u'\n'
-    safewrite(filename,s,lineendings)
+    safewrite(filename,s)
 
 # --------- Calling reStructuredText ---------------------------------
 
@@ -487,6 +487,39 @@ def subst_formula_rst(line):
         for ii in range((len(words)-1)/2):
             line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]                
     return line
+
+# ------------ file conversions --------------------------------------------------
+
+# Change the lineending to dos
+def unix2dos(path):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            name=os.path.join(root, name)
+            filecheck=commands.getoutput('file '+name)
+            if 'ASCII' in filecheck:
+                os.system('unix2dos '+name)
+
+def dos2unix(path):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            name=os.path.join(root, name)
+            if 'ASCII' in commands.getoutput('file '+name):
+                os.system('dos2unix '+name)
+
+def convertencoding(path,targetencoding):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            name=os.path.join(root, name)
+            filecheck=commands.getoutput('file '+name)
+            if 'UTF-8' in filecheck:
+                s='iconv --from-code=UTF-8 --to-code='+targetencoding+' '+name+' -o '+name
+                print 'iconv: converting',name
+
+                try:
+                    output=check_output(s,shell=True,stderr=PIPE)
+                except CalledProcessError as s:
+                    print s.output
+                    raise s
 
 # ------------ Configuration and output-producing object structure ---------------
 
@@ -2182,7 +2215,7 @@ def print_matlab(conf,ifilename,ofilename):
 
     outbuf+=conf.t.footer
 
-    safewrite(ofilename,outbuf,conf.g.lineendings)
+    safewrite(ofilename,outbuf)
 
 
 # This factory function creates function or script file objects
@@ -2214,11 +2247,6 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
     conf.g.execplot=do_execplot
     conf.g.args=args
-
-    if args.dos:
-        conf.g.lineendings='dos'
-    else:
-        conf.g.lineendings='unix'
 
     # Target
     if target=='php':
@@ -2517,6 +2545,9 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         newlocals=locals()        
         execfile(s,globals(),newlocals)
 
+        
+    if args.dos:
+        unix2dos(conf.t.dir)
 
 # ------------------ Run the program from the command line -------------
 
