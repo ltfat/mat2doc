@@ -12,8 +12,10 @@ from pygments import highlight
 from pygments.lexers import MatlabLexer
 from pygments.formatters import HtmlFormatter
 
-
 import docutils.core
+
+# This is deprecated, should switch to the more flexible execution system
+import commands
 
 #class Mat2docError(Exception):
 #    def __init__(self, value):
@@ -227,6 +229,12 @@ def safe_rmdir(dir):
     except OSError:
         pass
 
+def safe_remove(filename):
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+
 # rm -Rf
 # Does not remove the directory itself
 def rmrf(s):
@@ -269,6 +277,34 @@ def do_rebuild_file(source,dest,mode):
 
     if mode=='cached':
         return False
+
+# ------------------ text enconding routines -----------------------------
+
+def convertencoding(path,targetencoding):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            name=os.path.join(root, name)
+            filecheck=commands.getoutput('file '+name)
+            if 'UTF-8' in filecheck:
+                s='iconv --from-code=UTF-8 --to-code='+targetencoding+' '+name+' -o '+name
+                print 'iconv: converting',name
+
+                try:
+                    output=check_output(s,shell=True,stderr=PIPE)
+                except CalledProcessError as s:
+                    print "   Possible problem with iconv"
+                    print s.output
+                    #raise s
+
+# Change the lineendings to dos
+def unix2dos(path):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            name=os.path.join(root, name)
+            filecheck=commands.getoutput('file '+name)
+            if 'ASCII' in filecheck:
+                os.system('unix2dos '+name)
+
 
 # ------------------ read the configuration files ------------------------
 
@@ -452,7 +488,7 @@ def rst_postprocess(instr,outtype):
 
     return buf
 
-# ----------  Protection and substituion routines ---------------------------
+# ----------  Protection and substitution routines ---------------------------
 
 def protect_tex(line):
     # Protect characters so that they are not treated as special
@@ -572,6 +608,9 @@ class GlobalConf(ConfType):
         safe_mkdir(self.tmpdir)
         # Empty the tmp directory for safety
         rmrf(self.tmpdir)
+
+        self.filesdir=os.path.join(self.outputdir,self.projectname+'-files')
+        safe_mkdir(self.self.filesdir)
 
         s=os.path.join(self.confdir,'ignore')
         if os.path.exists(s):
@@ -2259,11 +2298,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         conf.t=TexConf(conf.g)
 
     if target=='mat':
-        conf.t=MatConf(conf.g)
-
-    if target=='octpkg':
-        conf.t=OctpkgConf(conf.g)
-        
+        conf.t=MatConf(conf.g)        
 
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
@@ -2432,6 +2467,33 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     # ---------- post package generation -------------
 
+    if args.packagename:
+        conf.g.packagename=args.packagename+'-'+conf.g.version
+    else:
+        conf.g.packagename=conf.g.projectname+'-'+conf.g.version
+
+    if args.script:
+        s=os.path.join(conf.t.confdir,args.script)
+
+        newlocals=locals()        
+        execfile(s,globals(),newlocals)
+
+    if args.addon:
+        frompath=os.path.join(os.path.abspath(os.path.expanduser(
+getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
+        print "Adding contents of "+frompath
+        #distutils.dir_util.copy_tree(frompath,conf.t.dir)
+        for root, dirs, files in os.walk(frompath):
+            for f in files:
+                if not f=='.dropbox':
+                    shutil.copy2(os.path.join(root,f),conf.t.dir)
+
+    if args.dos:
+        unix2dos(conf.t.dir)
+
+    if args.encoding:
+        convertencoding(conf.t.dir,args.encoding)
+
     if args.octpkg:
         print "Creating an Octave package structure"
 
@@ -2522,33 +2584,42 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         os.system(s)
 
         # Pack it up, better option would be the tarfile module
-        s='cd '+conf.t.dir+'; tar zcvf '+conf.g.projectname+'-'+conf.g.version+'.tar.gz '+conf.g.projectname
-        print s
+        packagename=conf.g.packagename+'.tar.gz'
+        s='cd '+conf.t.dir+'; tar zcvf '+packagename+' '+conf.g.projectname
         os.system(s)
 
+        dest=os.path.join(conf.g.filesdir,packagename)
+        safe_remove(dest)
+        shutil.move(os.path.join(conf.t.dir,packagename),dest)
 
-    if args.script:
-        s=os.path.join(conf.t.confdir,args.script)
+    # Shared code for the zip and tgz package, pre
+    if args.zip or args.tgz:
+        tmpworkdir=os.path.join(conf.g.tmpdir,conf.g.projectname)
+        safe_mkdir(tmpworkdir)
+        rmrf(tmpworkdir)
+        distutils.dir_util.copy_tree(conf.t.dir,tmpworkdir)
 
-        newlocals=locals()        
-        execfile(s,globals(),newlocals)
+    if args.zip:
+        packagename=conf.g.packagename+'.zip'
+        safe_remove(packagename)
+        os.system('cd '+conf.g.tmpdir+'; zip -r '+packagename+' '+projectname)
+        dest=os.path.join(conf.g.filesdir,packagename)
+        safe_remove(dest)
+        shutil.move(os.path.join(conf.g.tmpdir,packagename),dest)
 
-    if args.addon:
-        frompath=os.path.join(os.path.abspath(os.path.expanduser(
-getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
-        print "Adding contents of "+frompath
-        distutils.dir_util.copy_tree(frompath,conf.t.dir)
+    if args.tgz:
+        packagename=conf.g.packagename+'.tgz'
+        os.system('cd '+conf.g.tmpdir+'; tar zcvf '+packagename+' '+projectname)
+        dest=os.path.join(conf.g.filesdir,packagename)
+        safe_remove(dest)
+        shutil.move(os.path.join(conf.g.tmpdir,packagename),dest)
 
     if args.upload:
         s=os.path.join(conf.t.confdir,'upload.py')
 
         newlocals=locals()        
         execfile(s,globals(),newlocals)
-
         
-    if args.dos:
-        unix2dos(conf.t.dir)
-
 # ------------------ Run the program from the command line -------------
 
 # Parse the command line options
@@ -2570,6 +2641,17 @@ parser.add_argument('--octpkg',
                   action="store_true", default=False,
                   help="Create an Octave package")
 
+parser.add_argument('--packagename',
+                    help="Root of the packagename used for --octpkg, --zip and --tgz")
+
+parser.add_argument('--zip',
+                  action="store_true", default=False,
+                  help="Create an compressed zip file")
+
+parser.add_argument('--tgz',
+                  action="store_true", default=False,
+                  help="Create an compressed tar file")
+
 parser.add_argument('--script',help="Script to run after processing the files, but before uploading")
 
 parser.add_argument('--addon',help="Directory to add to the package. See the 'addonbase' global setting")
@@ -2588,10 +2670,10 @@ group2.add_argument("--rebuild", dest='rebuildmode', action="store_const",const=
 group2.add_argument("--cached", dest='rebuildmode', action="store_const",const='cached',
                     help='Only use cached files, never build')
 
-# Mutually exclusive : --unix and --dos
-group3 = parser.add_mutually_exclusive_group()
-group3.add_argument("--unix", action="store_true", help='Produce output with Unix lineendings (default)')
-group3.add_argument("--dos",  action="store_true", help='Produce output with DOS lineendings')
+parser.add_argument("--dos",  action="store_true", default=False,
+                   help='Produce output with DOS lineendings')
+
+parser.add_argument('--encoding',help="Character encoding to use for Utf-8 files")
 
 
 args = parser.parse_args()
