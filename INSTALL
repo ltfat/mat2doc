@@ -1,0 +1,23 @@
+No installation is needed to run mat2doc, everything is contained
+within the single file "mat2doc.py".
+
+On Unix system, you can simply execute the file from the current
+directory as in
+   
+   ./mat2doc.py --help
+
+On Windows and Mac systems, or if you want to specify the Python
+interpreter, you can run
+
+   python c:\path\to\mat2doc.py --help
+
+Basic usage of mat2doc looks like this
+
+   ./mat2doc.py /path/to/my/toolbox mat
+
+to generate .m files, and 
+
+   ./mat2doc.py /path/to/my/toolbox php
+
+to generate php files. There are many available options for creating
+packages etc.
