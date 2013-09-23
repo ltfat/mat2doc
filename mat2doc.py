@@ -974,6 +974,10 @@ class BasePrinter(object):
                 if foundhelp:
                     break
 
+        # Search for a possible attribute definition
+        attriblist=filter(lambda x:len(x)>0 and x[0]=='%' and 'MAT2DOC:' in x,buf)
+        attriblist=map(lambda x:x.split(':'),attriblist)
+
         self.parse()
 
         
@@ -2606,6 +2610,9 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         dest=os.path.join(conf.g.filesdir,packagename)
         safe_remove(dest)
         shutil.move(os.path.join(conf.t.dir,packagename),dest)
+
+        print('*** Have you remebered to update the NEWS file to the latest version ***')
+        print("*** From within Octave, generate_package_html('"+conf.g.projectname+"', '"+conf.g.projectname+"-html', 'octave-forge');")
 
     # Shared code for the zip and tgz package, pre
     if args.zip or args.tgz:
