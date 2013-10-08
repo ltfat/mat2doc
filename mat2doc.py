@@ -2065,8 +2065,9 @@ def print_matlab(conf,ifilename,ofilename):
                     obuf+=rline+u'\n'
 
                 # Write the clean HTML to a temporary file and process it using
-                # lynx.
-                outname=os.path.join(conf.g.tmpdir,'reflist')
+                # 
+				# This was missing
+                outname=os.path.join(conf.g.tmpdir,'lyxtmp')
                 safewrite(outname+'.html',obuf)
 
                 buf=conf.t.lynxexecuter(outname)
@@ -2487,7 +2488,11 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     # ---------- post package generation -------------
 
     if args.packagename:
-        conf.g.packagename=args.packagename+'-'+conf.g.version
+        try:
+		    #Try to use a placeholder for the version number first
+		    conf.g.packagename=args.packagename%conf.g.version
+        except:
+            conf.g.packagename=args.packagename+'-'+conf.g.version
     else:
         conf.g.packagename=conf.g.projectname+'-'+conf.g.version
 
@@ -2505,7 +2510,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         for root, dirs, files in os.walk(frompath):
             for f in files:
                 if not f=='.dropbox':
-                    shutil.copy2(os.path.join(root,f),conf.t.dir)
+                    shutil.copy2(os.path.join(root,f),os.path.join(conf.t.dir,os.path.relpath(root,frompath)))
 
     if args.dos:
         unix2dos(conf.t.dir)
