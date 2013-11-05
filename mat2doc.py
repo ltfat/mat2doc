@@ -2392,6 +2392,8 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
                 f.write("   '"+k+"' => '"+posixpath.join(lookupsubdir[k],k)+"',\n")
 
             f.write(");\n")
+            # Write other metadata
+            f.write("\n $toolboxversion='"+conf.g.version +"'; \n")
             f.write("?>\n")
 
             # flush the file, because we need it again very quickly
