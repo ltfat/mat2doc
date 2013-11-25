@@ -497,7 +497,6 @@ def rst_postprocess(instr,outtype):
         buf=buf[buf.index('<body>')+2:buf.index('</body>')-1]
 
     if outtype=='tex':
-        
         # Adjust the indexing to only include the relevant parts
         buf=buf[buf.index('\\maketitle')+1:buf.index('\\end{document}')]
 
@@ -1907,15 +1906,16 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         obuf=u''
 
+        # Matlab does not terminate if there is an error in the code, so
+        # we use a try-catch statment to capture the error an exit cleanly.
+        obuf+="try\n"
+
         obuf+='startup;\n'
 
         obuf+="disp('MARKER');\n"
 
         obuf+="set(0, 'DefaultFigureVisible', 'off');\n"
-
-        # Matlab does not terminate if there is an error in the code, so
-        # we use a try-catch statment to capture the error an exit cleanly.
-        obuf+="try\n"
+       
 
         for line in buf:
             obuf+=line+'\n'
@@ -1952,6 +1952,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         pos=output.find('MARKER')
         if pos<0:
+            print output
             userError('For the output %s: The plot engine did not print the MARKER output.' % outprefix)
 
         # Advance to the end of the MARKER line
