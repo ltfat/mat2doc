@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys,os,os.path,time,shutil
+import sys,os,os.path,time,shutil,distutils.core
 import argparse
 
 # ------------------ read the configuration files ------------------------
@@ -161,13 +161,13 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
         notedict['author']=authlist
 
         # Look for bibtex entry
-        notedict['bibentry']=os.path.exists(notesdir+note+'/bibentry')
+        notedict['bibentry']=os.path.exists(os.path.join(notesdir,note,'bibentry'))
 
         # Look for poster
-        notedict['poster']=os.path.exists(notesdir+note+'/poster.pdf')
+        notedict['poster']=os.path.exists(os.path.join(notesdir,note,'poster.pdf'))
 
         # Look for slides
-        notedict['slides']=os.path.exists(notesdir+note+'/slides.pdf')
+        notedict['slides']=os.path.exists(os.path.join(notesdir,note,'slides.pdf'))
 
         # Generate list of obsoleted notes
         if 'obsoletes' in notedict:
@@ -268,6 +268,9 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
         if notedict['bibentry']:
             obuf.append('<notes_third><a href="'+noteprefix+note+'.bib">Cite this paper</a></notes_third><br>')
 
+        if 'web' in notedict:
+           obuf.append('<notes_third><a href="'+note+'">Webpage</a></notes_third><br>')
+
         if len(notedict['obsoletedby'])>0:
             obuf.append('<notes_third>This note has been made obsolete by ')
             for obs in notedict['obsoletedby']:
@@ -301,12 +304,18 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
     allnotesdict=parseconfigfiles(noteprefix,notesdir,authdict)
     notes=allnotesdict.keys()
 
+    if not os.path.exists(notehtml):
+       print 'Creating directory ' + notehtml
+       os.makedirs(notehtml)
+
     # Clear the target directory
     rmrf(notehtml)
 
     #keys=getcurrentnotes(allnotesdict)
     keys=allnotesdict.keys()
     keys.sort()
+
+
 
     createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_number.php'))
     
@@ -324,7 +333,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
 
     createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_author.php'))
 
-    for note in notes:                
+    for note in notes:     
         notename=noteprefix+note
         shutil.copy2(os.path.join(notesdir,note,notename+'.pdf'),
                      os.path.join(notehtml,notename+'.pdf'))
@@ -340,6 +349,15 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
         if allnotesdict[note]['slides']:
             shutil.copy2(os.path.join(notesdir,note,'slides.pdf'),
                          os.path.join(notehtml,notename+'_slides.pdf'))
+
+        if 'web' in allnotesdict[note]:
+            webdirpath = os.path.join(notesdir,note,allnotesdict[note]['web'])
+            print webdirpath
+            if not os.path.exists(webdirpath):
+               print 'Directory '+webdirpath+' does not exist.'
+            else:
+               distutils.dir_util.copy_tree(webdirpath,os.path.join(notehtml,note))
+             
 
 
 
