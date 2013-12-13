@@ -157,17 +157,17 @@ class LynxExecuter(ProgramExecuter):
     
     name='Lynx'
     matchstring='cookies'
-	
+
     def __init__(self,path,directorypath):
         self.directorypath=directorypath
         ProgramExecuter.__init__(self,path)
-	
+
     def executeRaw(self,s):
         oldcwd=os.getcwd()
         os.chdir(self.directorypath)
         (output,errput,code)=ProgramExecuter.executeRaw(self,s)
         os.chdir(oldcwd)
-		
+
         return (output,errput,code)
 
     def __call__(self,outname):
@@ -226,7 +226,7 @@ class GitExecuter(ProgramExecuter):
 
 class SvnExecuter(ProgramExecuter):
     name='Svn'
-    
+
 
 # ----------------- extra path/dir manipulations ---------------------------
 
@@ -280,11 +280,11 @@ def do_rebuild_file(source,dest,mode):
         if mode=='cached':
             print 'Error: Cached version of '+dest+ ' does not exist'
             sys.exit()
-        
+
         print dest +' missing'
 
         return True
-            
+
     is_newer = os.path.getmtime(source)>os.path.getmtime(dest)
 
     if mode=='auto':
@@ -292,33 +292,6 @@ def do_rebuild_file(source,dest,mode):
 
     if mode=='cached':
         return False
-
-# ------------------ text enconding routines -----------------------------
-
-def convertencoding(path,targetencoding):
-    for root, dirs, files in os.walk(path, topdown=False):
-        for name in files:
-            name=os.path.join(root, name)
-            filecheck=commands.getoutput('file '+name)
-            if 'UTF-8' in filecheck:
-                s='iconv --from-code=UTF-8 --to-code='+targetencoding+' '+name+' -o '+name
-                print 'iconv: converting',name
-
-                try:
-                    output=check_output(s,shell=True,stderr=PIPE)
-                except CalledProcessError as s:
-                    print "   Possible problem with iconv"
-                    print s.output
-                    #raise s
-
-# Change the lineendings to dos
-def unix2dos(path):
-    for root, dirs, files in os.walk(path, topdown=False):
-        for name in files:
-            name=os.path.join(root, name)
-            filecheck=commands.getoutput('file '+name)
-            if 'ASCII' in filecheck:
-                os.system('unix2dos '+name)
 
 
 # ------------------ read the configuration files ------------------------
@@ -470,12 +443,8 @@ def call_rst(instring,outtype):
     return unicode(buf,'utf-8')
 
 
-
 def rst_postprocess(instr,outtype):
-
-
     if outtype=='tex':
-
         instr = re.sub("\\\\section\*{","\\subsubsection*{",instr)
         instr = re.sub("\\\\section{","\\subsubsection{",instr)
         instr = re.sub("\\\\phantomsection","",instr)
@@ -483,7 +452,6 @@ def rst_postprocess(instr,outtype):
         instr = re.sub("\\\\newcounter{listcnt0}","\\\setcounter{listcnt0}{0}",instr)
         instr = re.sub("\\\\label{.*?}%\n","",instr)
         
-
 
     buf = instr.split('\n')
 
@@ -546,14 +514,15 @@ def unix2dos(path):
         for name in files:
             name=os.path.join(root, name)
             filecheck=commands.getoutput('file '+name)
-            if 'ASCII' in filecheck:
+            if any(x in filecheck for x in ('ASCII','UTF-8')):
                 os.system('unix2dos '+name)
 
 def dos2unix(path):
     for root, dirs, files in os.walk(path, topdown=False):
         for name in files:
             name=os.path.join(root, name)
-            if 'ASCII' in commands.getoutput('file '+name):
+            filecheck=commands.getoutput('file '+name)
+            if any(x in filecheck for x in ('ASCII','UTF-8')):
                 os.system('dos2unix '+name)
 
 def convertencoding(path,targetencoding):
@@ -981,18 +950,14 @@ class BasePrinter(object):
 
         
     def writelines(self,fname,buf):
-	# Create directory to hold the file if it does not already
-	# exist.
-	fullname=os.path.join(self.c.t.dir,fname)
-	base,name=os.path.split(fullname)
-	if not os.path.exists(base):
-	   os.mkdir(base)
+        # Create directory to hold the file if it does not already
+        # exist.
+        fullname=os.path.join(self.c.t.dir,fname)
+        base,name=os.path.split(fullname)
+        if not os.path.exists(base):
+            os.mkdir(base)
 
         safewritelines(fullname,buf)
-
-
-
-
 
 class ExecPrinter(BasePrinter):
 
@@ -2066,8 +2031,8 @@ def print_matlab(conf,ifilename,ofilename):
                     obuf+=rline+u'\n'
 
                 # Write the clean HTML to a temporary file and process it using
-                # 
-				# This was missing
+                ## This was missing
+                # This was missing
                 outname=os.path.join(conf.g.tmpdir,'lyxtmp')
                 safewrite(outname+'.html',obuf)
 
@@ -2492,8 +2457,8 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     if args.packagename:
         try:
-		    #Try to use a placeholder for the version number first
-		    conf.g.packagename=args.packagename%conf.g.version
+            #Try to use a placeholder for the version number first
+            conf.g.packagename=args.packagename%conf.g.version
         except:
             conf.g.packagename=args.packagename+'-'+conf.g.version
     else:
@@ -2517,6 +2482,9 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
 
     if args.dos:
         unix2dos(conf.t.dir)
+
+    if args.unix:
+        dos2unix(conf.t.dir)
 
     if args.encoding:
         convertencoding(conf.t.dir,args.encoding)
@@ -2700,8 +2668,13 @@ group2.add_argument("--rebuild", dest='rebuildmode', action="store_const",const=
 group2.add_argument("--cached", dest='rebuildmode', action="store_const",const='cached',
                     help='Only use cached files, never build')
 
-parser.add_argument("--dos",  action="store_true", default=False,
-                   help='Produce output with DOS lineendings')
+# Mutually exclusive : --dos, --unix
+group3 = parser.add_mutually_exclusive_group()
+group3.add_argument("--dos", action="store_true", default=False,
+                   help='Forces output to DOS lineendings (CRLF)')
+
+group3.add_argument("--unix", action="store_true", default=False,
+                   help='Forces output to UNIX lineendings (LF)')
 
 parser.add_argument('--encoding',help="Character encoding to use for Utf-8 files")
 
