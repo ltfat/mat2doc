@@ -238,7 +238,11 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
 
         obuf.append('<tr valign="top"><td>')
         obuf.append(note+'</td><td>')
-        obuf.append('<notes_title><a href="'+noteprefix+note+'.pdf">'+notedict['title']+'</a></notes_title><br>')
+
+        if 'URL' not in notedict:
+            obuf.append('<notes_title><a href="'+noteprefix+note+'.pdf">'+notedict['title']+'</a></notes_title><br>')
+        else:
+            obuf.append('<notes_title><a href="'+notedict['URL']+'">'+notedict['title']+'</a></notes_title><br>') 
         
         # Print the author line
         first_author=1;
@@ -335,8 +339,11 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
 
     for note in notes:     
         notename=noteprefix+note
-        shutil.copy2(os.path.join(notesdir,note,notename+'.pdf'),
-                     os.path.join(notehtml,notename+'.pdf'))
+
+
+        if 'URL' not in allnotesdict[note]:
+            shutil.copy2(os.path.join(notesdir,note,notename+'.pdf'),
+                        os.path.join(notehtml,notename+'.pdf'))
 
         if allnotesdict[note]['bibentry']:
             shutil.copy2(os.path.join(notesdir,note,'bibentry'),
