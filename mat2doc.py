@@ -508,7 +508,7 @@ def subst_formula_rst(line):
 
 # ------------ file conversions --------------------------------------------------
 
-# Change the lineending to dos
+# Force the lineending to dos
 def unix2dos(path):
     for root, dirs, files in os.walk(path, topdown=False):
         for name in files:
@@ -517,6 +517,7 @@ def unix2dos(path):
             if any(x in filecheck for x in ('ASCII','UTF-8')):
                 os.system('unix2dos '+name)
 
+# Force the lineending to unix
 def dos2unix(path):
     for root, dirs, files in os.walk(path, topdown=False):
         for name in files:
@@ -1442,21 +1443,26 @@ class ExecPrinter(BasePrinter):
         # --- See also
         obuf.append('$seealso = array(')
         for see in self.parsed.get('seealso',[]):
-            if not see in self.c.lookupsubdir:
-                if not see in self.c.g.ignorelist:
-                    userError('The function %s listed in "See also" cannot be found' % see)
-            else:
-                obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
-                            posixpath.join(self.c.lookupsubdir[see],see+self.c.t.fext)+'",')
-                
+            try:
+               obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
+               posixpath.join(self.c.lookupsubdir[see],see+self.c.t.fext)+'",')
+            except KeyError:
+               if not see in self.c.g.ignorelist:
+                   userError('Error in %s: "See also" section reference an unknown file %s.'%(self.fname,see))
+
+
         obuf.append(');')
 
         
         obuf.append('$demos = array(')
         for see in self.parsed.get('demos',[]):
-            obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
+            try:
+                obuf.append('   "'+see+'" => "'+self.c.t.urlbase+
                         self.c.lookupsubdir[see]+'/'+see+self.c.t.fext+'",')
-            
+            except KeyError:
+                if not see in self.c.g.ignorelist:
+                    userError('Error in %s: "demos" section reference an unknown file %s.'%(self.fname,see))
+
         obuf.append(');')
 
         # --- Keywords
@@ -2477,7 +2483,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         #distutils.dir_util.copy_tree(frompath,conf.t.dir)
         for root, dirs, files in os.walk(frompath):
             for f in files:
-                if not f=='.dropbox':
+                if not f in ('.dropbox','desktop.ini'):
                     shutil.copy2(os.path.join(root,f),os.path.join(conf.t.dir,os.path.relpath(root,frompath)))
 
     if args.dos:
@@ -2676,7 +2682,8 @@ group3.add_argument("--dos", action="store_true", default=False,
 group3.add_argument("--unix", action="store_true", default=False,
                    help='Forces output to UNIX lineendings (LF)')
 
-parser.add_argument('--encoding',help="Character encoding to use for Utf-8 files")
+# Optional encoding conversion
+parser.add_argument('--encoding',help="Character encoding to use for Utf-8 files if conversion is possible. Use encoging recognized by iconv (Type iconv -l for complete list).")
 
 
 args = parser.parse_args()
@@ -2689,9 +2696,3 @@ if rebuildmode==None:
 projectname,projectdir,confdir=findMat2docDir(args.filename)
 
 printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot,args)
-
-
-
-
-
-
