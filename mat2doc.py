@@ -1847,6 +1847,7 @@ def clean_tex(line):
 
 def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
+    do_call = False;
     tmpfile='plotexec'
     tmpname=os.path.join(tmpdir,tmpfile+'.m')
     fullpath=os.path.dirname(outprefix)
@@ -1875,6 +1876,11 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         else:
             safe_mkdir(fullpath)
 
+        if buf[0].split()[0] == 'function':
+            # We need to call this script and not paste it
+            do_call = True
+
+
         obuf=u''
 
         # Matlab does not terminate if there is an error in the code, so
@@ -1887,9 +1893,11 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         obuf+="set(0, 'DefaultFigureVisible', 'off');\n"
        
-
-        for line in buf:
-            obuf+=line+'\n'
+        if not do_call:
+            for line in buf:
+                obuf+=line+'\n'
+        else:
+            obuf+=funname+';\n'
 
         obuf+="""
     for ii=1:numel(findall(0,'type','figure'))
@@ -1988,6 +1996,10 @@ def print_matlab(conf,ifilename,ofilename):
     name = os.path.basename(ifilename).split('.')[0]
     
     dooct=conf.g.args.octpkg and not name=='Contents'
+
+    # Remove the %RUNASSCRIPT comment if present at the first line
+    if len(ibuf)>0 and '%RUNASSCRIPT' in ibuf[0]:
+        ibuf[0]=ibuf[0][0:ibuf[0].find('%RUNASSCRIPT')]
 
     ibuf.reverse()
 
@@ -2255,7 +2267,7 @@ def matfile_factory(conf,fname):
     
     buf=safereadlines(os.path.join(conf.g.projectdir,fname+'.m'))
 
-    if buf[0].split()[0]=='function':
+    if buf[0].split()[0]=='function' and not '%RUNASSCRIPT' in buf[0]:
         return FunPrinter(conf,fname)
     else:
         return ExamplePrinter(conf,fname)
