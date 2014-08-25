@@ -206,6 +206,8 @@ class Bibtex2htmlExecuter(ProgramExecuter):
         (output,errput,code)=self.executeRaw(s)
         if not code==0:
             print 'ERROR while running Bibtex2html:'
+            print 'Call sequence: ',s
+            print 'Output:',output
             userError(errput)
 
         if 'Warning' in output:
@@ -1913,7 +1915,11 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         obuf+="print(['"+outprefix+"_',num2str(ii),'."+ptype+"'],'"+printtype+"')\n"
         obuf+="end;\n"
 
-        obuf+="catch err\ndbstack\nerr.message\ndisp('ERROR IN THE CODE');end;"
+        # Octave does not yet support the "catch err" syntax, but uses lasterr
+        if plotexecuter.name=='Matlab':
+            obuf+="catch err\ndbstack\nerr.message\ndisp('ERROR IN THE CODE');end;"
+        else:
+            obuf+="catch\nlasterr\ndbstack\ndisp('ERROR IN THE CODE');end;"
 
         # Matlab needs an explicit 'exit' statement, otherwise the interpreter
         # hangs around.

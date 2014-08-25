@@ -319,7 +319,8 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
     keys=allnotesdict.keys()
     keys.sort()
 
-
+    # Put the newest papers first
+    keys.reverse()
 
     createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_number.php'))
     
