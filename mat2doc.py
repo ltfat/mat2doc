@@ -451,8 +451,8 @@ def rst_postprocess(instr,outtype):
         instr = re.sub("\\\\addcontentsline.*\n","",instr)
         instr = re.sub("\\\\newcounter{listcnt0}","\\\setcounter{listcnt0}{0}",instr)
         instr = re.sub("\\\\label{.*?}%\n","",instr)
-        instr = re.sub("\\\\\\\\","\\\\",instr)
-        instr = re.sub("\\\\begin{figure}","\\\\begin{figure}[ht!]",instr)
+        #instr = re.sub("\\\\\\\\","\\\\",instr)
+        instr = re.sub("\\\\begin{figure}","\\begin{figure}[ht!]",instr)
         
 
 
