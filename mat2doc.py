@@ -2441,12 +2441,17 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
           
         matExport(conf)
 
+        import stat
         for root, dirs, files in os.walk(conf.t.dir, topdown=False):
             # Walk through the .m files
             for mfile in filter(lambda x: x[-2:]=='.m',files):
-                print 'MAT '+os.path.join(root,mfile)
-                print_matlab(conf,os.path.join(root,mfile),os.path.join(root,mfile))
-        
+                fullmfile = os.path.join(root,mfile)
+                print 'MAT '+fullmfile
+                # Make sure m-files are not executable 
+                os.chmod(fullmfile, os.stat(fullmfile).st_mode &
+                         ~(stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH))
+                print_matlab(conf,fullmfile,fullmfile)
+         
 
     if conf.t.basetype=='verify':
 
