@@ -2391,8 +2391,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
             # flush the file, because we need it again very quickly
             f.flush()
-            f.close()            
-            
+            f.close()
 
         # Print Contents files
         lookupsubdir={}
@@ -2426,7 +2425,6 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
                 rmrf(targetimages)
                 safe_rmdir(targetimages)
                 shutil.copytree(originimages,targetimages)
-            
 
         # Post-stuff, copy the include directory
         if conf.t.basetype=='html':
@@ -2434,8 +2432,21 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             rmrf(targetinc)
             safe_rmdir(targetinc)
             shutil.copytree(os.path.join(confdir,conf.t.basetype,'include'),targetinc)
-        
-        
+
+            print "Writing lookup table"
+            f=open(os.path.join(targetinc,'lookup.js'),'w')
+            f.write('var globalfunlist = {\n')
+            mfilenames=conf.lookupsubdir.keys()
+            mfilenames.sort()
+            for k in mfilenames:
+                f.write("   "+k+":'"+posixpath.join(conf.lookupsubdir[k],k)+"',\n")
+
+            f.write("};\n")
+            # Write other metadata
+            f.write("\n var toolboxversion='"+conf.g.version +"'; \n")
+            f.flush()
+            f.close()
+
 
     if conf.t.basetype=='mat':
           
