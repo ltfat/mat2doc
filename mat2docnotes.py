@@ -15,8 +15,38 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+# Global config file
+
+# Target config file
+#    Mandatory:
+#       outputdir
+#       hostname
+#       hostdir
+#       prefix
+#    Optional:
+#       template
+#
+# Note config file
+#    Mandatory:
+#       type [documentation,article,poster]
+#       title The LTFAT Notes series
+#       author jv ps
+#       year current or number
+#    Optional:
+#       URL [URL] # use external link instead of pdf
+#       web [www|auto] #use www subdir as a webpage for the paper, auto will generate a
+#                       generic page with link to the archive
+#       archive toarchive # pack contents of toarchive subdir and include it in www 
+
+
+from __future__ import print_function
 import sys,os,os.path,time,shutil,distutils.core
 import argparse
+
+
+# Target types
+targettypes = ['html','php']
 
 # ------------------ read the configuration files ------------------------
 
@@ -24,6 +54,11 @@ import argparse
 # --- depend on modules 
 def findMat2docDir(searchdir):
     head=os.path.abspath(os.path.expanduser(searchdir))
+
+    if not os.path.exists(head):
+        print('{} does not exist.'.format(head));
+        sys.exit(-1);
+
     if not os.path.isdir(head):
         (head,tail)=os.path.split(head)
 
@@ -35,7 +70,7 @@ def findMat2docDir(searchdir):
         else:
             (newhead,tail)=os.path.split(head)
             if newhead==head:
-                print "Not found"
+                print("Not found")
                 sys.exit()
             else:
                 head=newhead
@@ -68,7 +103,7 @@ class ConfType:
 
         if os.path.exists(s):
             newlocals=locals()
-            
+
             execfile(s,globals(),newlocals)
 
             # Update the object with the dictionary of keys read from
@@ -80,7 +115,7 @@ class ConfType:
 
         if os.path.exists(s):
             newlocals=locals()
-            
+
             execfile(s,globals(),newlocals)
 
             # Update the object with the dictionary of keys read from
@@ -111,7 +146,7 @@ def getnotenumbers(notesdir):
 
     allnotes=os.listdir(notesdir)
     allnotes = filter(lambda x: (os.path.isdir(os.path.join(notesdir,x)) and (x[0].isdigit())),allnotes)
-    
+
     return allnotes
 
 
@@ -130,7 +165,7 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
 
         conffilename=os.path.join(notesdir,note,'config')
         if not os.path.exists(conffilename):
-            print 'Skipping note',note,'config file missing'
+            print('Skipping note',note,'config file missing')
             continue
 
         notes_found.append(note)
@@ -138,13 +173,13 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
         f=file(conffilename,'r')
         buf=f.readlines()
         f.close()
-    
+
         # Initialize notedict with the information from the config file
         for line in buf:
             s=line.split(' ')
             # Join add a newline at the end, remove this when joining
             notedict[s[0]]=' '.join(s[1:])[:-1]
-            
+
         # If year is 'current', update the year with the year of the .pdf file
         if notedict['year']=='current':
             modtime=os.path.getmtime(os.path.join(notesdir,note,noteprefix+note+'.pdf'))
@@ -174,7 +209,7 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
             notedict['obsoletes']=notedict['obsoletes'].split(' ')
         else:
             notedict['obsoletes']=[]
-        
+
         # Create empty list
         notedict['obsoletedby']=[]
         allnotesdict[note]=notedict
@@ -196,7 +231,7 @@ def getcurrentnotes(allnotesdict):
         currentnotes=currentnotes.difference(set(allnotesdict[note]['obsoletes']))
 
     return list(currentnotes)
-    
+
 
 def parseauthors(authorfile):
     f=file(authorfile)
@@ -221,16 +256,21 @@ def parseauthors(authorfile):
         authdict[key]['name']=name
         authdict[key]['email']=email
         authdict[key]['homepage']=homepage
-    
+
     return authdict
 
-def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
+def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
 
     obuf=[]
 
     # Open table, and append header and first horizontal line
     obuf.append('<table cellpadding=5><tr valign=top><td>')   
-    obuf.append('<tr valign="top" align="left"><th><a href="index.php">No.</a></th><th><a href="index_author.php">Name</a></th><th><a href="index_year.php">Year</a></th><th><a href="index_type.php">Type</a></th></tr>')
+    obuf.append('<tr valign="top" align="left"><th><a '
+            'href="index.'+targettype+'">No.</a></th><th><a '
+            'href="index_author'+targettype+'">Name</a></th><th><a '
+            'href="index_year.'+targettype+'">Year</a></th><th><a '
+            'href="index_type.'+targettype+'">Type</a></th></tr>')
+
     obuf.append('<tr><td colspan=4><hr /></td></tr>')
 
     for note in keys:
@@ -243,7 +283,7 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
             obuf.append('<notes_title><a href="'+noteprefix+note+'.pdf">'+notedict['title']+'</a></notes_title><br>')
         else:
             obuf.append('<notes_title><a href="'+notedict['URL']+'">'+notedict['title']+'</a></notes_title><br>') 
-        
+
         # Print the author line
         first_author=1;
         s='<notes_author>'
@@ -251,7 +291,7 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
             if first_author:
                 first_author=0
             else:
-                    #s=s+' and '
+                #s=s+' and '
                 s=s+', '
             if len(author['homepage'])==0:
                 s=s+author['name']
@@ -273,7 +313,7 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
             obuf.append('<notes_third><a href="'+noteprefix+note+'.bib">Cite this paper</a></notes_third><br>')
 
         if 'web' in notedict:
-           obuf.append('<notes_third><a href="'+note+'">Webpage</a></notes_third><br>')
+            obuf.append('<notes_third><a href="'+note+'">Webpage</a></notes_third><br>')
 
         if len(notedict['obsoletedby'])>0:
             obuf.append('<notes_third>This note has been made obsolete by ')
@@ -285,21 +325,21 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename):
         obuf.append(notedict['year'])
         obuf.append('</td><td>')
         obuf.append(notedict['type']+'</tr>')
-            
+
 
         # Horizontal line
         obuf.append('<tr><td colspan=4><hr /></td></tr>')
 
     obuf.append('</table>')
-        
+
     f=file(filename,'w')
     for line in obuf:
         f.write(line+'\n')
 
     f.close()
-  
 
-def printnoteshtml(noteprefix,notesdir,notehtml):
+
+def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
 
     # Parse the authors file in the mat2doc directory
     authdict = parseauthors(os.path.join(notesdir,'mat2doc/authors'))
@@ -309,8 +349,8 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
     notes=allnotesdict.keys()
 
     if not os.path.exists(notehtml):
-       print 'Creating directory ' + notehtml
-       os.makedirs(notehtml)
+        print('Creating directory ' + notehtml)
+        os.makedirs(notehtml)
 
     # Clear the target directory
     rmrf(notehtml)
@@ -322,75 +362,86 @@ def printnoteshtml(noteprefix,notesdir,notehtml):
     # Put the newest papers first
     keys.reverse()
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_number.php'))
-    
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_number.'+targettype),targettype)
+
     keys.sort(key=lambda x: allnotesdict[x]['year'])
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_year.php'))
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_year.'+targettype),targettype)
 
     keys.sort()
     keys.sort(key=lambda x: allnotesdict[x]['type'])
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_type.php'))
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_type.'+targettype),targettype)
 
     keys.sort()
     keys.sort(key=lambda x: allnotesdict[x]['author'][0]['name'].split(' ')[:-1])
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_author.php'))
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_author.'+targettype),targettype)
 
-    for note in notes:     
+    for note in notes:
         notename=noteprefix+note
 
 
         if 'URL' not in allnotesdict[note]:
             shutil.copy2(os.path.join(notesdir,note,notename+'.pdf'),
-                        os.path.join(notehtml,notename+'.pdf'))
+                    os.path.join(notehtml,notename+'.pdf'))
 
         if allnotesdict[note]['bibentry']:
             shutil.copy2(os.path.join(notesdir,note,'bibentry'),
-                         os.path.join(notehtml,notename+'.bib'))
+                    os.path.join(notehtml,notename+'.bib'))
 
         if allnotesdict[note]['poster']:
             shutil.copy2(os.path.join(notesdir,note,+'poster.pdf'),
-                         os.path.join(notehtml,notename+'_poster.pdf'))
+                    os.path.join(notehtml,notename+'_poster.pdf'))
 
         if allnotesdict[note]['slides']:
             shutil.copy2(os.path.join(notesdir,note,'slides.pdf'),
-                         os.path.join(notehtml,notename+'_slides.pdf'))
+                    os.path.join(notehtml,notename+'_slides.pdf'))
 
         if 'web' in allnotesdict[note]:
             webdirpath = os.path.join(notesdir,note,allnotesdict[note]['web'])
-            print webdirpath
+            print( webdirpath)
+
             if not os.path.exists(webdirpath):
-               print 'Directory '+webdirpath+' does not exist.'
+                print('    Directory '+webdirpath+' does not exist.')
             else:
-               distutils.dir_util.copy_tree(webdirpath,os.path.join(notehtml,note))
-             
+                distutils.dir_util.copy_tree(webdirpath,os.path.join(notehtml,note))
 
+        if 'archive' in allnotesdict[note]:
+            archivepath = os.path.join(notesdir,note,allnotesdict[note]['archive'])
 
+            if not os.path.exists(archivepath):
+                print('    Directory '+archivepath+' does not exist.')
+            else:
+                # pack contents of archivepath directory to 
+                packcommand = 'zip -jr ' + os.path.join(notehtml,note,noteprefix+note+'.zip') + ' ' + archivepath
+                print(packcommand)
+                os.system(packcommand )
 
-
-def do_the_stuff(projectdir,confdir,todo,args):
-
-    confdir=os.path.join(projectdir,'mat2doc')
+def do_the_stuff(projectdir,confdir,target,args):
+    targettype = filter(lambda prefix:
+            target.startswith(prefix),targettypes+['make','clean'])[0]
 
     conf=ConfContainer()
 
     # Global
     conf.g=ConfType(confdir)
-    
+
+    if targettype in targettypes:
+        conf.t=ConfType(os.path.join(confdir,target))
+
     # Sanitize the output directory for safety
     noteshtml=os.path.join(os.path.abspath(os.path.expanduser(conf.g.outputdir)),conf.g.prefix+'-html')
 
-    if 'make' in todo:
+    if 'make' in targettype:
         notes=getnotenumbers(projectdir)
         notes = filter(lambda x: (os.path.exists(os.path.join(projectdir,x,'Makefile'))), notes)
 
         for notenumber in notes:
-            print 'Trying to make '+conf.g.prefix+notenumber
+            print('Trying to make '+conf.g.prefix+notenumber)
             os.system('cd '+os.path.join(projectdir,notenumber)+'; make')
 
-    if 'clean' in todo:
+    if 'clean' in targettype:
         notes=getnotenumbers(projectdir)
 
         notes = filter(lambda x: (os.path.exists(os.path.join(projectdir,x,'Makefile'))), notes)
@@ -398,39 +449,71 @@ def do_the_stuff(projectdir,confdir,todo,args):
         for notenumber in notes:
             os.system('cd '+os.path.join(projectdir,notenumber)+'; make texclean')
 
-    if 'html' in todo:
-        printnoteshtml(conf.g.prefix,projectdir,noteshtml)
 
+    if targettype in targettypes:
+        printnoteshtml(conf.g.prefix,projectdir,noteshtml,targettype,conf.t)
         # Add a final / to the path, otherwise rsync upload incorrectly
         if noteshtml[-1]!=os.sep:
             noteshtml=noteshtml+os.sep
-        print noteshtml
-        os.system('rsync -av '+noteshtml+' '+conf.g.hostname+':'+conf.g.hostdir);
 
+        hostname = conf.g.hostname.strip()+':' if conf.g.hostname.strip() else '';
+        command= 'rsync -av '+noteshtml+' '+hostname+conf.g.hostdir
+        print('Run:\n    {}\nTo upload.'.format(command));
+
+
+
+def main():
+    # Search for targets first
+    if(len(sys.argv)<2):
+        print('Not enough input arguments.')
+        sys.exit(-1);
+
+    projectname,projectdir,confdir=findMat2docDir(sys.argv[1])
+
+    targets = [x for x in os.listdir(confdir)
+                        if os.path.isdir(os.path.join(confdir,x))
+                        and 'conf.py' in os.listdir(os.path.join(confdir,x))]
+
+    print(', '.join(targets))
+
+    wrongtargets = filter(lambda x: not any(x.startswith(prefix) for prefix in targettypes),targets)
+
+    if wrongtargets:
+        print('The following directories are not valid targets: {}\n'
+              'They do not start with {}'.format(', '.join(wrongtargets),
+              ' or '.join(targettypes)));
+        sys.exit(-1)
+
+    if not targets:
+        print("No tagets were found in " + confdir + "\n"
+              "A targer is a subdirectory of " + confdir + " containing conf.py")
+        sys.exit(-1)
+
+    # Parse the command line options
+    parser = argparse.ArgumentParser(description='The mat2doc notes generator.')
+    parser.add_argument('filename', help='File or directory to process', default='')
+
+    # Locate the mat2doc configuration directory
+
+    targets.extend(['make','clean']);
+    parser.add_argument('target', choices=targets,
+            help='Output target')
+
+    parser.add_argument('-q', '--quiet',
+            action="store_false", dest='verbose', default=True,
+            help="don't print status messages to stdout")
+
+    parser.add_argument('--upload',
+            action="store_true", default=False,
+            help="Run the upload script of the target")
+
+    args = parser.parse_args()
+
+    do_the_stuff(projectdir,confdir,args.target,args)
 
 # ------------------ Run the program from the command line -------------
-
-# Parse the command line options
-parser = argparse.ArgumentParser(description='The mat2doc notes generator.')
-parser.add_argument('filename', help='File or directory to process', default='')
-
-parser.add_argument('target', choices=['make','html','clean'],
-                    help='Output target')
-
-parser.add_argument('-q', '--quiet',
-                  action="store_false", dest='verbose', default=True,
-                  help="don't print status messages to stdout")
-
-parser.add_argument('--upload',
-                  action="store_true", default=False,
-                  help="Run the upload script of the target")
-
-args = parser.parse_args()
-
-# Locate the mat2doc configuration directory
-projectname,projectdir,confdir=findMat2docDir(args.filename)
-
-do_the_stuff(projectdir,confdir,args.target,args)
+if __name__ == '__main__':
+    main()
 
 
 
