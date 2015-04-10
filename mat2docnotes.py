@@ -17,15 +17,20 @@
 
 
 # Global config file
-
+#    Mandatory:
+#       prefix 
+#       outputdir -- output directory for all targets
+#                    target directory name is [prefix]-[target]
+#
 # Target config file
 #    Mandatory:
-#       outputdir
-#       hostname
-#       hostdir
-#       prefix
+#       hostname  -- server address
+#       hostdir   -- path on the server
+#
+#       hostname and hostdir are only used in the final rsync command        
+#
 #    Optional:
-#       template
+#       template  -- path to a template to be used 
 #
 # Note config file
 #    Mandatory:
@@ -43,6 +48,10 @@
 from __future__ import print_function
 import sys,os,os.path,time,shutil,distutils.core
 import argparse
+import zipfile
+import zlib
+
+
 
 
 # Target types
@@ -170,9 +179,7 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
 
         notes_found.append(note)
 
-        f=file(conffilename,'r')
-        buf=f.readlines()
-        f.close()
+        with open(conffilename,'r') as f: buf = f.readlines()
 
         # Initialize notedict with the information from the config file
         for line in buf:
@@ -234,9 +241,7 @@ def getcurrentnotes(allnotesdict):
 
 
 def parseauthors(authorfile):
-    f=file(authorfile)
-    buf = f.readlines()
-    f.close
+    with open(authorfile,'r') as f: buf = f.readlines()
 
     authdict={}
     for line in buf:
@@ -266,8 +271,8 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
     # Open table, and append header and first horizontal line
     obuf.append('<table cellpadding=5><tr valign=top><td>')   
     obuf.append('<tr valign="top" align="left"><th><a '
-            'href="index.'+targettype+'">No.</a></th><th><a '
-            'href="index_author'+targettype+'">Name</a></th><th><a '
+            'href=".">No.</a></th><th><a '
+            'href="index_author.'+targettype+'">Name</a></th><th><a '
             'href="index_year.'+targettype+'">Year</a></th><th><a '
             'href="index_type.'+targettype+'">Type</a></th></tr>')
 
@@ -299,10 +304,6 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
                 s=s+'<a href="'+author['homepage']+'">'+author['name']+'</a>'
         obuf.append(s+'</notes_author><br>')
 
-        #obuf.append('<a href="'+noteprefix+note+'.pdf">ltfatnote'+note+'.pdf</a>')
-        #obuf.append('<a href="'+noteprefix+note+'.pdf">Download</a>')
-
-
         if notedict['poster']:
             obuf.append('<notes_third>Download <a href="'+noteprefix+note+'_poster.pdf">poster</a></notes_third><br>')
 
@@ -332,11 +333,8 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
 
     obuf.append('</table>')
 
-    f=file(filename,'w')
-    for line in obuf:
-        f.write(line+'\n')
-
-    f.close()
+    # Write obuf to filename
+    with open(filename,'w') as f: f.writelines(obuf)
 
 
 def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
@@ -344,8 +342,9 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
     # Parse the authors file in the mat2doc directory
     authdict = parseauthors(os.path.join(notesdir,'mat2doc/authors'))
 
-    # Get information from all the 'config' files
+    # Get information from all the note 'config' files
     allnotesdict=parseconfigfiles(noteprefix,notesdir,authdict)
+
     notes=allnotesdict.keys()
 
     if not os.path.exists(notehtml):
@@ -378,6 +377,8 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
 
     createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_author.'+targettype),targettype)
 
+
+    # The following loop takes one note at a time
     for note in notes:
         notename=noteprefix+note
 
@@ -400,38 +401,104 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
 
         if 'web' in allnotesdict[note]:
             webdirpath = os.path.join(notesdir,note,allnotesdict[note]['web'])
-            print( webdirpath)
+            targetwebdirpath = os.path.join(notehtml,note)
 
             if not os.path.exists(webdirpath):
                 print('    Directory '+webdirpath+' does not exist.')
             else:
-                distutils.dir_util.copy_tree(webdirpath,os.path.join(notehtml,note))
+                webdirlist = os.listdir(webdirpath)
+
+                othertargettypes = list(targettypes)
+                othertargettypes.remove(targettype)
+                ignorefiles = [f for f in webdirlist
+                               if any(f.endswith(suffix) for suffix in othertargettypes)]
+
+                if not 'index.'+targettype in webdirlist:
+                    # If there is no index file, search for include_ files
+                    incfiles = filter(lambda f: f.startswith('include_'), webdirlist)
+                    inccontentfile = os.path.join(webdirpath,'include_content.html')
+                    ignorefiles.extend(incfiles)
+
+                othertargettypes = list(targettypes)
+                othertargettypes.remove(targettype)
+                shutil.copytree(webdirpath,targetwebdirpath,
+                        ignore=lambda d, files: [f for f in files if f in ignorefiles])
+
+                if not 'index.'+targettype in webdirlist:
+                    if not 'include_content.html' in incfiles:
+                        print('{} not found.'.format(inccontentfile))
+                        sys.exit(-1)
+
+                    # Try to read template from the conf object and fallback
+                    # to target/template.hml if .template is not defined.
+                    templatepath = getattr(t,'template',os.path.join(t.confdir,'template.'+targettype))
+
+                    if not os.path.exists(templatepath):
+                        print('{} not found.'.format(templatepath))
+                        sys.exit(-1)
+
+                    with open(inccontentfile,'r') as inccont:
+                        include_content = inccont.read()
+
+                    with open(templatepath,'r') as tt:
+                        authornames = [f['name'] for f in allnotesdict[note]['author']]
+                        repldict = {'TITLE'   : noteprefix+note,
+                                    'NAME'    : allnotesdict[note]['title'],
+                                    'CITATION': ', '.join(authornames) + ': ' + allnotesdict[note]['title'],
+                                    'CONTENT' : include_content
+                                }
+                        template = tt.read();
+                        for kv, expansion in repldict.items():
+                            template = template.replace('{'+kv+'}',expansion)
+
+                        # The following crashes with KeyError if any of the keywords 
+                        # is not found in the template
+                        #template = tt.read().format(TITLE= noteprefix+note,
+                        #                           NAME= allnotesdict[note]['title'],
+                        #                           CITATION=', '.join(authornames) + ': '
+                        #                           + allnotesdict[note]os.path.join(notehtml,note,noteprefix+note+'.zip')['title'],
+                        #                           CONTENT=include_content)
+
+                    with open(os.path.join(targetwebdirpath,'index.'+targettype),'w') as tt:
+                        tt.write(template)
+
 
         if 'archive' in allnotesdict[note]:
             archivepath = os.path.join(notesdir,note,allnotesdict[note]['archive'])
+            targetarchivepath = os.path.join(notehtml,note,noteprefix+note+'.zip') 
 
             if not os.path.exists(archivepath):
                 print('    Directory '+archivepath+' does not exist.')
             else:
                 # pack contents of archivepath directory to 
-                packcommand = 'zip -jr ' + os.path.join(notehtml,note,noteprefix+note+'.zip') + ' ' + archivepath
-                print(packcommand)
-                os.system(packcommand )
+                #packcommand = 'zip -jr ' + os.path.join(notehtml,note,noteprefix+note+'.zip') + ' ' + archivepath
+                #print(packcommand)
+                #os.system(packcommand)
+                with zipfile.ZipFile(targetarchivepath, mode='w') as zf:
+                    for f in os.listdir(archivepath):
+                        zf.write(os.path.join(archivepath,f),
+                                compress_type=zipfile.ZIP_DEFLATED,
+                                arcname=f)
 
-def do_the_stuff(projectdir,confdir,target,args):
+def do_the_stuff(projectdir,args):
+    # This directory exists for sure
+    confdir = os.path.join(projectdir,'mat2doc')
+    target = args.target
+
+    # Target type from target
     targettype = filter(lambda prefix:
             target.startswith(prefix),targettypes+['make','clean'])[0]
 
+    # Just empty object
     conf=ConfContainer()
 
-    # Global
+    # Read global config
     conf.g=ConfType(confdir)
 
     if targettype in targettypes:
+        # Read target specific config if target is not 'make' or 'clean'
         conf.t=ConfType(os.path.join(confdir,target))
 
-    # Sanitize the output directory for safety
-    noteshtml=os.path.join(os.path.abspath(os.path.expanduser(conf.g.outputdir)),conf.g.prefix+'-html')
 
     if 'make' in targettype:
         notes=getnotenumbers(projectdir)
@@ -451,16 +518,16 @@ def do_the_stuff(projectdir,confdir,target,args):
 
 
     if targettype in targettypes:
-        printnoteshtml(conf.g.prefix,projectdir,noteshtml,targettype,conf.t)
-        # Add a final / to the path, otherwise rsync upload incorrectly
-        if noteshtml[-1]!=os.sep:
-            noteshtml=noteshtml+os.sep
+        # Sanitize the output directory for safety
+        noteshtml=os.path.join(os.path.abspath(os.path.expanduser(conf.g.outputdir)),conf.g.prefix+'-'+target)
 
-        hostname = conf.g.hostname.strip()+':' if conf.g.hostname.strip() else '';
+        printnoteshtml(conf.g.prefix,projectdir,noteshtml,targettype,conf.t)
+
+        # Add a final / to the path, otherwise rsync upload incorrectly
+        if noteshtml[-1]!=os.sep: noteshtml=noteshtml+os.sep
+        hostname = conf.t.hostname.strip()+':' if conf.t.hostname.strip() else '';
         command= 'rsync -av '+noteshtml+' '+hostname+conf.g.hostdir
         print('Run:\n    {}\nTo upload.'.format(command));
-
-
 
 def main():
     # Search for targets first
@@ -468,14 +535,17 @@ def main():
         print('Not enough input arguments.')
         sys.exit(-1);
 
+    # Locate the mat2doc configuration directory
     projectname,projectdir,confdir=findMat2docDir(sys.argv[1])
 
+    # Gather ponential targets
     targets = [x for x in os.listdir(confdir)
                         if os.path.isdir(os.path.join(confdir,x))
                         and 'conf.py' in os.listdir(os.path.join(confdir,x))]
 
     print(', '.join(targets))
 
+    # Filter out those which are not recognized as valid targets according to target types 
     wrongtargets = filter(lambda x: not any(x.startswith(prefix) for prefix in targettypes),targets)
 
     if wrongtargets:
@@ -493,8 +563,6 @@ def main():
     parser = argparse.ArgumentParser(description='The mat2doc notes generator.')
     parser.add_argument('filename', help='File or directory to process', default='')
 
-    # Locate the mat2doc configuration directory
-
     targets.extend(['make','clean']);
     parser.add_argument('target', choices=targets,
             help='Output target')
@@ -509,7 +577,7 @@ def main():
 
     args = parser.parse_args()
 
-    do_the_stuff(projectdir,confdir,args.target,args)
+    do_the_stuff(projectdir,args)
 
 # ------------------ Run the program from the command line -------------
 if __name__ == '__main__':
