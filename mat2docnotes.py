@@ -526,7 +526,7 @@ def do_the_stuff(projectdir,args):
         # Add a final / to the path, otherwise rsync upload incorrectly
         if noteshtml[-1]!=os.sep: noteshtml=noteshtml+os.sep
         hostname = conf.t.hostname.strip()+':' if conf.t.hostname.strip() else '';
-        command= 'rsync -av '+noteshtml+' '+hostname+conf.g.hostdir
+        command= 'rsync -av '+noteshtml+' '+hostname+conf.t.hostdir
         print('Run:\n    {}\nTo upload.'.format(command));
 
 def main():
