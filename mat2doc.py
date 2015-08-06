@@ -49,15 +49,15 @@ def userError(s):
 # cases, where no extra arguments are needed for contruction, and
 # takes a pointer to the global configuration.
 def executerFactory(g,programname):
-        
+
     # Simple stuff
     executers={'git':GitExecuter,
                'svn':SvnExecuter,
                'matlab':MatlabExecuter,
                'octave':OctaveExecuter}
-    
+
     return executers[programname](getattr(g,programname+'exec',programname))
-    
+
 
 class ProgramExecuter:
     checked=0
@@ -102,7 +102,7 @@ class ProgramExecuter:
         if debug:
             print output
             print errput
-        
+
         return(output,errput,code)
 
     def __call__(self,s):
@@ -133,7 +133,7 @@ class ProgramExecuter:
 
 
 class MatlabExecuter(ProgramExecuter):
-    
+
     name='Matlab'
     teststring='-h'
     matchstring='nosplash'
@@ -144,17 +144,17 @@ class MatlabExecuter(ProgramExecuter):
         return output
 
 class OctaveExecuter(ProgramExecuter):
-    
+
     name='Octave'
     matchstring='Usage:'
 
     def __call__(self,s):
-        self.test()    
+        self.test()
         (output,errput,code)=self.executeRaw(['-q']+s)
         return output
 
 class LynxExecuter(ProgramExecuter):
-    
+
     name='Lynx'
     matchstring='cookies'
 
@@ -171,7 +171,7 @@ class LynxExecuter(ProgramExecuter):
         return (output,errput,code)
 
     def __call__(self,outname):
-        self.test()    
+        self.test()
 
         s=['-dump',outname+'.html']
         (output,errput,code)=self.executeRaw(s)
@@ -378,7 +378,7 @@ def saferead(filename):
         buf=unicode(f.read())
     except UnicodeDecodeError as s:
         userError('File %s in not encoded an unicode, please convert it to Unicode.' % filename)
-    
+
     f.close()
 
     return buf
@@ -404,9 +404,9 @@ def safereadlines(filename):
         linebuf=[]
 
     return linebuf
-    
+
 def safewritelines(filename,buf):
-        
+
     s=u'\n'.join(buf)+u'\n'
     safewrite(filename,s)
 
@@ -431,7 +431,7 @@ def call_rst(instring,outtype):
         args = {
             'initial_header_level' : 3,
             }
-    
+
     # Look up the correct writer name
     writernames={}
     writernames['php']='html'
@@ -455,7 +455,7 @@ def rst_postprocess(instr,outtype):
         instr = re.sub("\\\\label{.*?}%\n","",instr)
         #instr = re.sub("\\\\\\\\","\\\\",instr)
         instr = re.sub("\\\\begin{figure}","\\begin{figure}[ht!]",instr)
-        
+
 
 
     buf = instr.split('\n')
@@ -465,7 +465,7 @@ def rst_postprocess(instr,outtype):
         # Transform <em> into <var>
         #buf=  re.sub('<em>','<var>',buf)
         #buf=  re.sub('</em>','</var>',buf)
-        
+
         # Adjust the indexing to remove the <body> and <div document> tags.
         buf=buf[buf.index('<body>')+2:buf.index('</body>')-1]
 
@@ -480,7 +480,7 @@ def rst_postprocess(instr,outtype):
 def protect_tex(line):
     # Protect characters so that they are not treated as special
     # commands for TeX
-    
+
     line=line.replace('[','{[}')
     line=line.replace(']','{]}')
     #line=line.replace('_','\_')
@@ -488,17 +488,17 @@ def protect_tex(line):
     line=line.replace('%','\%')
     line=line.replace('*','{*}')
     line=line.replace('^','\textasciicircum{}')
-    
+
     return line
 
 
 def protect_html(line):
     # Protect characters so that they are not treated as special
     # commands for HTML
-    
+
     line=line.replace('<','&lt;')
     line=line.replace('>','&gt;')
-    
+
     return line
 
 
@@ -508,7 +508,7 @@ def subst_formula_rst(line):
         words=line.split('$')
         line=words[0]
         for ii in range((len(words)-1)/2):
-            line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]                
+            line+=':math:`'+words[2*ii+1]+'`'+words[2*ii+2]
     return line
 
 # ------------ file conversions --------------------------------------------------
@@ -563,31 +563,31 @@ class ConfType:
 
         if os.path.exists(s):
             newlocals=locals()
-            
+
             execfile(s,globals(),newlocals)
 
             # Update the object with the dictionary of keys read from
             # the configuration file
             for k, v in newlocals.items():
-                setattr(self, k, v)        
+                setattr(self, k, v)
 
         s=os.path.join(self.confdir,'confshadow.py')
 
         if os.path.exists(s):
             newlocals=locals()
-            
+
             execfile(s,globals(),newlocals)
 
             # Update the object with the dictionary of keys read from
             # the configuration file
             for k, v in newlocals.items():
-                setattr(self, k, v)        
+                setattr(self, k, v)
 
 
 class GlobalConf(ConfType):
     def __init__(self,confdir,projectname,projectdir):
         ConfType.__init__(self,confdir)
-        
+
         # Sanitize the output directory for safety
         self.outputdir=os.path.abspath(os.path.expanduser(self.outputdir))
 
@@ -605,7 +605,7 @@ class GlobalConf(ConfType):
         if os.path.exists(s):
             self.ignorelist=safereadlines(s)
         else:
-            self.ignorelist=[]    
+            self.ignorelist=[]
 
         # if "versionfile" exists, use it to override "version"
         if hasattr(self,"versionfile"):
@@ -614,7 +614,7 @@ class GlobalConf(ConfType):
                 self.version=saferead(s).strip()
             else:
                 userError('File %s speficied in the global conf.py is missing.' % s)
-            
+
         # Setup the program used for plotting
         s=getattr(self,'plotengine','matlab')
         self.plotexecuter=executerFactory(self,s)
@@ -627,14 +627,14 @@ class GlobalConf(ConfType):
         self.autostage=getattr(self,'autostage',True)
         self.author   =getattr(self,'author','')
         self.year     =getattr(self,'year',datetime.datetime.now().year)
-        
 
 
-class TargetConf(ConfType):    
+
+class TargetConf(ConfType):
     bibstyle='abbrv'
     otherrefs=[]
 
-    def __init__(self,g):        
+    def __init__(self,g):
         self.confdir=os.path.join(g.confdir,self.basetype)
 
         ConfType.__init__(self,self.confdir)
@@ -659,13 +659,13 @@ class TexConf(TargetConf):
     # commands for TeX
     def protect(self,line):
         line=protect_tex(line)
-        
+
         return line
-    
+
     # Just append the latex-code.
     def displayformula_old(self,buf,obuf,fignum,caller):
         obuf.extend(buf)
-        
+
     # Append a line of references
     def references(self,refbuf,obuf,caller):
         s=self.referenceheader+' '
@@ -690,7 +690,7 @@ class WebConf(TargetConf):
 
     beginboxheader='<b>'
     endboxheader='</b><br>'
- 
+
     referenceheader='<H2>References:</H2>'
 
     # Use bibtex2html to generate html references
@@ -703,7 +703,7 @@ class WebConf(TargetConf):
 
             obuf.append(self.referenceheader)
             obuf.extend(buf)
-        
+
 
 # This is the class from which PHP configurations should be
 # derived.
@@ -717,7 +717,7 @@ class PhpConf(WebConf):
             backdir='../'
 
         includedir=os.path.join(backdir,caller.c.t.includedir)
-        
+
         # Must end with a slash
         if not includedir[-1]=='/':
             includedir+='/'
@@ -738,7 +738,7 @@ class PhpConf(WebConf):
         obuf.append('$doctype='+`doctype`+';')
 
         obuf.extend(phpvars)
-        
+
         obuf.append("$content = '")
         obuf.extend(maincontents)
         obuf.append("';")
@@ -771,7 +771,7 @@ class PhpConf(WebConf):
 
         obuf.append(");")
         obuf.append("?>")
-                    
+
         return obuf
 
 
@@ -791,7 +791,7 @@ class HtmlConf(WebConf):
             self.template=saferead(templatefile)
         else:
             userError('Template file %s is missing.' % templatefile)
-            
+
 
     def structure_as_webpage(self,caller,maincontents,doctype):
 
@@ -804,10 +804,12 @@ class HtmlConf(WebConf):
         obuf=[' ']
 
         # Load the menu from a file, it was previously written there by the ContentsPrinter
-        menu=saferead(os.path.join(self.dir,caller.subdir,'contentsmenu'+self.fext))
-        
+        menu=saferead(os.path.join(self.dir,
+            caller.subdir if caller.subdir else 'base',
+            'contentsmenu'+self.fext))
+
         # Generate see-also
-        seealso = caller.print_variables_html()
+        seealso = caller.print_variables_html(doctype)
 
         # Generate view switcher
         switchview=''
@@ -849,13 +851,13 @@ class HtmlConf(WebConf):
                 if ul_on:
                     obuf.append('</ul>')
                     ul_on=0
-                    
+
                 obuf.append('<div id="menutitle">'+line[1]+'</div>')
 
         if ul_on:
             obuf.append('</ul>')
             ul_on=0
-                    
+
         return obuf
 
 
@@ -879,7 +881,7 @@ class MatConf(TargetConf):
             self.header=''
 
         footerfile=os.path.join(self.confdir,'footer.'+self.fext)
-        if os.path.exists(footerfile):    
+        if os.path.exists(footerfile):
             self.footer=saferead(footerfile)
         else:
             self.footer=''
@@ -901,7 +903,7 @@ class MatConf(TargetConf):
 #    basetype='octpkg'
 #    fext='.m'
 #
-#    def __init__(self,g):        
+#    def __init__(self,g):
 #        self.confdir=os.path.join(g.confdir,self.basetype)
 #
 #        self.dir=os.path.join(g.outputdir,g.projectname+'-'+self.basetype)
@@ -912,8 +914,9 @@ class MatConf(TargetConf):
 
 
 class BasePrinter(object):
-    def __init__(self,conf,fname):
+    def __init__(self,conf,fname,targfname=''):
         self.c=conf
+        self.targfullname = targfname if targfname else fname
 
         # self.fname contains the name of the file
         # self.subdir contains the relative subdir in which the file is placed
@@ -954,7 +957,7 @@ class BasePrinter(object):
 
         self.parse()
 
-        
+
     def writelines(self,fname,buf):
         # Create directory to hold the file if it does not already
         # exist.
@@ -987,7 +990,7 @@ class ExecPrinter(BasePrinter):
             sys.exit()
 
         out['description']=space.join(line[1:]).strip()
-        
+
         self.title=out['name']+' - '+out['description']
 
         if len(out['description'])==0:
@@ -1022,16 +1025,16 @@ class ExecPrinter(BasePrinter):
         s=out['name']+' - '+out['description']
         out['body'].append(s)
         out['body'].append('='*len(s))
-        
+
         for ii in range(len(buf)):
-            
+
             if len(buf[ii].strip())>1:
                 if not (buf[ii][0:3]=='   '):
                     print '   In function %s: Line does not start with three empty spaces.' % out['name']
                     sys.exit()
                 else:
                     buf[ii]=buf[ii][3:]
-            
+
 
         while len(buf)>0:
 
@@ -1062,11 +1065,11 @@ class ExecPrinter(BasePrinter):
                             print s
                             sys.exit()
 
-                    
+
                     out['body'].append('  '+s)
                     line=buf.pop()
 
-            if 'Input parameters' in line:                
+            if 'Input parameters' in line:
                 out['body'].append('Input parameters')
                 out['body'].append('----------------')
                 out['body'].append('')
@@ -1075,7 +1078,7 @@ class ExecPrinter(BasePrinter):
                     line=buf.pop().rstrip()
                 idl=find_indent(line)
                 # While the line does not start at zero.
-                while not (len(line.strip())>0 and find_indent(line)==0):       
+                while not (len(line.strip())>0 and find_indent(line)==0):
                     s=find_indent(line)
                     if s>0:
                         line=line[idl:]
@@ -1089,7 +1092,7 @@ class ExecPrinter(BasePrinter):
                         out['body'].append(firstpart)
                         out['body'].append(secondpart)
                     else:
-                        out['body'].append(line)                        
+                        out['body'].append(line)
 
                     line=buf.pop().rstrip()
                 # make sure the environment is closed
@@ -1104,7 +1107,7 @@ class ExecPrinter(BasePrinter):
                     line=buf.pop().rstrip()
                 idl=find_indent(line)
                 # While the line does not start at zero.
-                while not (len(line.strip())>0 and find_indent(line)==0):       
+                while not (len(line.strip())>0 and find_indent(line)==0):
                     s=find_indent(line)
                     if s>0:
                         line=line[idl:]
@@ -1118,12 +1121,12 @@ class ExecPrinter(BasePrinter):
                         out['body'].append(firstpart)
                         out['body'].append(secondpart)
                     else:
-                        out['body'].append(line)                        
+                        out['body'].append(line)
 
                     line=buf.pop().rstrip()
                 # make sure the environment is closed
                 out['body'].append('')
-            
+
             if ':::' in line:
                 exec_n +=1
 
@@ -1139,12 +1142,12 @@ class ExecPrinter(BasePrinter):
                 # add an empty line after the ::, because it was killed
                 out['body'].append('')
                 # While the line does not start at zero.
-                while not ((len(buf)==0) or (len(line.strip())>0 and find_indent(line)==0)):       
+                while not ((len(buf)==0) or (len(line.strip())>0 and find_indent(line)==0)):
                     codebuf.append(line)
 
                     out['body'].append(line)
                     line=buf.pop().rstrip()
-                    
+
                 # push back the last line, it was one too many.
                 if find_indent(line)==0:
                     buf.append(line)
@@ -1152,7 +1155,7 @@ class ExecPrinter(BasePrinter):
                 # make sure the environment is closed
                 out['body'].append('')
 
-                outputprefix=os.path.join(self.c.t.dir,self.fullname+'_'+`exec_n`)
+                outputprefix=os.path.join(self.c.t.dir,self.targfullname+'_'+`exec_n`)
 
                 # Execute the code
                 (outbuf,nfigs)=execplot(self.c.g.plotexecuter,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
@@ -1164,7 +1167,7 @@ class ExecPrinter(BasePrinter):
                     out['body'].append('')
                     for outline in outbuf:
                         out['body'].append('  '+outline)
-                    out['body'].append('')                
+                    out['body'].append('')
 
                 # Append the plots
                 for i in range(nfigs):
@@ -1175,7 +1178,7 @@ class ExecPrinter(BasePrinter):
                     out['body'].append('')
 
                 continue
-      
+
             if 'See also' in line:
                 (dummy,sep,s) = line.partition(':')
                 if not(sep==':'):
@@ -1226,7 +1229,7 @@ class ExecPrinter(BasePrinter):
 
         # Set the name
         self.name=self.parsed['name'].lower()
-        
+
         # Add a final empty line, to make sure all environments are properly closed.
         out['body'].append('')
 
@@ -1238,11 +1241,11 @@ class ExecPrinter(BasePrinter):
             userError("The Matlab code file %s cannot be found. You probably need to run the 'mat' target first." % s)
 
     def print_code_html(self):
-        
+
         highlightbuf=highlight(self.codebuf, MatlabLexer(), HtmlFormatter())
- 
+
         maincontents=[]
-    
+
         maincontents.append('<h1 class="title">'+self.parsed['name']+' - '+self.parsed['description']+'</h1>')
 
         maincontents.append('<h2>Program code:</h2>')
@@ -1283,7 +1286,7 @@ class ExecPrinter(BasePrinter):
                 line=re.sub("  '","--Q",line)
                 # Look for the ending of the key, and move the
                 # value (if the is one) one space to the left
-                
+
                 pos=line.find("',")
                 if pos>-1:
                     endpos=line.find("  ",pos)
@@ -1321,7 +1324,7 @@ class ExecPrinter(BasePrinter):
 
             buf_to_rst+=subst_formula_rst(line)+u'\n'
 
-        
+
         # Uncomment this to print the raw reStructuredText input
         #print buf_to_rst
         #sys.exit()
@@ -1387,8 +1390,8 @@ class ExecPrinter(BasePrinter):
 
 
         buf = rst_postprocess(buf,self.c.t.basetype)
-            
-        obuf.extend(buf)        
+
+        obuf.extend(buf)
 
         # Do references
         if  self.parsed.has_key('references'):
@@ -1397,7 +1400,7 @@ class ExecPrinter(BasePrinter):
 
         return
 
-        
+
 
     def print_html(self):
 
@@ -1413,7 +1416,7 @@ class ExecPrinter(BasePrinter):
         pname_unprotected=self.parsed['name'].lower()
         pnamel=pname.lower()
         obuf.append('\subsection['+pnamel+']{'+pname+' - '+self.c.t.protect(self.parsed['description'])+'}\label{'+pname_unprotected+'}\index{'+pnamel+'}')
-    
+
         obuf.append('')
 
         self.print_body(obuf)
@@ -1422,12 +1425,12 @@ class ExecPrinter(BasePrinter):
 
     def write_the_file(self):
         if self.c.t.basetype=='php' or self.c.t.basetype=='html':
-            self.write_html()            
+            self.write_html()
 
         if self.c.t.basetype=='tex':
             buf=self.print_tex([])
             self.writelines(self.fullname+self.c.t.fext,buf)
-        
+
 
     def print_variables_php(self):
         # Convention used in this routine
@@ -1458,7 +1461,7 @@ class ExecPrinter(BasePrinter):
 
         obuf.append(');')
 
-        
+
         obuf.append('$demos = array(')
         for see in self.parsed.get('demos',[]):
             try:
@@ -1473,10 +1476,12 @@ class ExecPrinter(BasePrinter):
         # --- Keywords
         obuf.append('$keywords = "'+self.title+'";')
 
-        
+
         return obuf
 
-    def print_variables_html(self):
+    def print_variables_html(self,doctype=1):
+        doctypestr = '' if doctype == 1 else '_code'
+
         seealso=''
         seealsolist=self.parsed.get('seealso',[])
         if len(seealsolist)>0:
@@ -1484,27 +1489,29 @@ class ExecPrinter(BasePrinter):
 
             seealso+='<ul>\n'
             for see in seealsolist:
-                seealso+='<li><a href="'+os.path.join(self.c.t.urlbase,self.c.lookupsubdir[see],see+self.c.t.fext)+'">'+see+'</a></li>\n'
+                href = os.path.join(self.c.t.urlbase,self.c.lookupsubdir[see],
+                                    see+doctypestr+self.c.t.fext)
+                seealso+='<li><a href="'+href+'">'+see+'</a></li>\n'
             seealso+='</ul>\n'
 
         return seealso
 
-        
+
 
 class FunPrinter(ExecPrinter):
 
     def write_html(self):
 
         html_help_buf=self.print_html()
-        self.writelines(self.fullname+self.c.t.fext,html_help_buf)
+        self.writelines(self.targfullname+self.c.t.fext,html_help_buf)
 
         html_code_buf=self.print_code_html()
-        self.writelines(self.fullname+'_code'+self.c.t.fext,html_code_buf)
+        self.writelines(self.targfullname+'_code'+self.c.t.fext,html_code_buf)
 
 
 class ExamplePrinter(ExecPrinter):
 
-    # Specialized version to fill in figures.    
+    # Specialized version to fill in figures.
     def write_html(self):
 
         # This functions does the following things different than the funnav
@@ -1516,13 +1523,13 @@ class ExamplePrinter(ExecPrinter):
         # - does a search and replace to put in the correct filenames
         #   for the .. figure:: tags
 
-        outputprefix=os.path.join(self.c.t.dir,self.fullname)
+        outputprefix=os.path.join(self.c.t.dir,self.targfullname)
 
         # Execute the code in the script
         (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
                                 outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
                                 self.c.g.execplot)
-        
+
         newbody=[]
         # Go through the code and fill in the correct filenames
         counter = 1
@@ -1535,7 +1542,7 @@ class ExamplePrinter(ExecPrinter):
                 counter += 1
             else:
                 newbody.append(line)
-        
+
 
         # Append the result, if there is any
         if len(outbuf)>0 and self.c.t.includeoutput:
@@ -1543,7 +1550,7 @@ class ExamplePrinter(ExecPrinter):
             newbody.append('')
             for outline in outbuf:
                 newbody.append('  '+outline)
-            newbody.append('')                
+            newbody.append('')
 
         self.parsed['body']=newbody
 
@@ -1552,11 +1559,11 @@ class ExamplePrinter(ExecPrinter):
         # Do the main plotting.
         html_help_buf=self.print_html()
 
-        self.writelines(self.fullname+self.c.t.fext,html_help_buf)
+        self.writelines(self.targfullname+self.c.t.fext,html_help_buf)
 
         html_code_buf=self.print_code_html()
-        self.writelines(self.fullname+'_code'+self.c.t.fext,html_code_buf)            
-        
+        self.writelines(self.targfullname+'_code'+self.c.t.fext,html_code_buf)
+
 
     def print_tex(self,obuf):
 
@@ -1587,7 +1594,7 @@ class ExamplePrinter(ExecPrinter):
                                 self.c.g.execplot)
         if self.c.t.includeoutput:
             obuf.append('\\subsubsection*{Output}')
-                
+
             obuf.append('\\begin{verbatim}')
 
             for line in outbuf:
@@ -1619,12 +1626,12 @@ class ContentsPrinter(BasePrinter):
         while len(buf)>0:
 
             line=buf.pop()
-                        
+
             if (sep in line) and not (isnewblock(line)):
                 # Fix the preceeding line, if it is a text line
                 if obuf[-1][0]=='text':
                     obuf[-1][0]='caption'
-                
+
                 # Put the line back in buf for parsing.
                 buf.append(line)
                 pairs=parse_pairs(sep,buf,find_indent(line))
@@ -1714,7 +1721,7 @@ class ContentsPrinter(BasePrinter):
                 maincontents.append('-'*len(line[1]))
                 continue
 
-        
+
         outstr=''
         for line in maincontents:
             outstr+=line+'\n'
@@ -1726,7 +1733,7 @@ class ContentsPrinter(BasePrinter):
 
         obuf=[]
 
-        obuf.append('\graphicspath{{'+self.subdir+'/}}') 
+        obuf.append('\graphicspath{{'+self.subdir+'/}}')
 
         obuf.append('\\chapter{'+self.title+'}')
 
@@ -1746,7 +1753,7 @@ class ContentsPrinter(BasePrinter):
                 fname=os.path.join(self.subdir,line[1])
                 obuf.append('\input{'+fname+'}')
                 continue
-            
+
         return obuf
 
 
@@ -1754,23 +1761,24 @@ class ContentsPrinter(BasePrinter):
     def write_the_file(self):
 
         if self.c.t.basetype=='php' or self.c.t.basetype=='html':
+            targsubdir, targfname = os.path.split(self.targfullname)
             # Print the menu first, as the html target will need to
             # include it immidiatly
             menu=self.c.t.print_menu(self.parsed)
-            self.writelines(os.path.join(self.subdir,'contentsmenu'+self.c.t.fext),menu)
+            self.writelines(os.path.join(targsubdir,'contentsmenu'+self.c.t.fext),menu)
 
             rststr=self.print_rst()
             webstr=call_rst(rststr,self.c.t.basetype)
             buf = rst_postprocess(webstr,self.c.t.basetype)
             buf = self.c.t.structure_as_webpage(self,buf,0)
-            
-            self.writelines(os.path.join(self.subdir,'index'+self.c.t.fext),buf)
-            
+
+            self.writelines(os.path.join(targsubdir,'index'+self.c.t.fext),buf)
+
 
         if self.c.t.basetype=='tex':
             obuf=self.print_tex()
             self.writelines(self.fullname+'.tex',obuf)
-    
+
 
     def print_variables_php(self):
         # Convention used in this routine
@@ -1790,13 +1798,13 @@ class ContentsPrinter(BasePrinter):
 
         obuf.append('$seealso = array();')
         obuf.append('$demos = array();')
-        
+
         # --- Keywords
         obuf.append('$keywords = "'+self.title+'";')
 
         return obuf
 
-    def print_variables_html(self):
+    def print_variables_html(self,doctype):
         seealso=''
         return seealso
 
@@ -1805,7 +1813,7 @@ def isblank(line):
     if len(line.split())==0:
         return 1
     return 0
-    
+
 def isnewblock(line):
     if line[3]!=' ':
         return 1
@@ -1819,7 +1827,7 @@ def parse_pairs(sep,buf,parent_indent):
 
         if ind==-1:
             # No separator found.
-            
+
             if find_indent(line)>parent_indent:
                 # If this line is more indented than its parent,
                 # add it to the list but with no separator
@@ -1829,7 +1837,7 @@ def parse_pairs(sep,buf,parent_indent):
                 # Put the line back into the buffer and stop
                 buf.append(line)
                 break
-        else:            
+        else:
             if ind+1==len(line.rstrip()):
                 # The separator appears at the very end, this is a
                 # new block.
@@ -1844,9 +1852,9 @@ def parse_pairs(sep,buf,parent_indent):
 
 # Remove TeX-only charachters
 def clean_tex(line):
-    
+
     line=line.replace('$','')
-    
+
     return line
 
 
@@ -1866,7 +1874,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         # We are not supposed to generate anything, but if there is no
         # _output file, we must rebuild anyway
         if not os.path.exists(outprefix+'_output'):
-            do_it=1        
+            do_it=1
 
     if do_it:
         # Clear old figures. We *must* do this, as we cannot tell if
@@ -1897,7 +1905,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         obuf+="disp('MARKER');\n"
 
         obuf+="set(0, 'DefaultFigureVisible', 'off');\n"
-       
+
         if not do_call:
             for line in buf:
                 obuf+=line+'\n'
@@ -1930,9 +1938,9 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         safewrite(tmpname,obuf)
 
         if plotexecuter.name=='Octave':
-           s=['--path',tmpdir,tmpname]   
+           s=['--path',tmpdir,tmpname]
         else:
-           s=['-r','"addpath \''+tmpdir+'\'; '+tmpfile+';"']   
+           s=['-r','"addpath \''+tmpdir+'\'; '+tmpfile+';"']
 
         print '   Producing '+outprefix+' using '+plotexecuter.name
 
@@ -1951,7 +1959,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
 
         if 'ERROR IN THE CODE' in output:
             print '--------- Matlab code error ----------------'
-            print output        
+            print output
             userError('For the output %s: There was an error in the Matlab code.' % outprefix)
 
         # Sometimes Matlab prints the prompt on the last line, it ends
@@ -1968,7 +1976,7 @@ def execplot(plotexecuter,buf,outprefix,ptype,tmpdir,do_it):
         #safewrite(outprefix+'_output',output)
         f=open(outprefix+'_output','w')
         f.write(output)
-        f.close()        
+        f.close()
 
         # If string was empty, return empty list, otherwise split into lines.
         if len(output)==0:
@@ -2003,7 +2011,7 @@ def print_matlab(conf,ifilename,ofilename):
 
     # Determine the name of the function
     name = os.path.basename(ifilename).split('.')[0]
-    
+
     dooct=conf.g.args.octpkg and not name=='Contents'
 
     # Remove the %RUNASSCRIPT comment if present at the first line
@@ -2028,10 +2036,10 @@ def print_matlab(conf,ifilename,ofilename):
     # Do the help section
     if dooct:
         outbuf+=u"%-*- texinfo -*-\n"
-        outbuf+=u"%@deftypefn {Function} "+name+"\n" 
-        outbuf+=u"%@verbatim\n" 
+        outbuf+=u"%@deftypefn {Function} "+name+"\n"
+        outbuf+=u"%@verbatim\n"
         seealso=[]
-    
+
     while len(line)>0 and line[0]=='%' and len(ibuf)>0:
         if  'References:' in line:
             (dummy,sep,s) = line.partition(':')
@@ -2080,12 +2088,12 @@ def print_matlab(conf,ifilename,ofilename):
             if len(line_empty[1:].strip())>0:
                 print '   Error: Figure definition must be followed by a single empty line.'
                 sys.exit()
-                
+
             heading=ibuf.pop()
 
             if not find_indent(heading[1:])==6:
                 print "Error in %s:" % os.path.basename(ifilename)
-                print "   The headline after the .. figure:: definition must start with 6 spaces" 
+                print "   The headline after the .. figure:: definition must start with 6 spaces"
                 sys.exit()
 
             if len(heading[1:].strip())==0:
@@ -2102,7 +2110,7 @@ def print_matlab(conf,ifilename,ofilename):
             nfig+=1
 
             continue
-        
+
         # Just skip the image, and keep on skipping until we hit a
         # blank line, and eat that also to avoid two consequitive empty lines
         if '.. image::' in line:
@@ -2115,7 +2123,7 @@ def print_matlab(conf,ifilename,ofilename):
         # correctly handle display math in nested environments.
         if '.. math::' in line:
             line=ibuf.pop()
-            
+
             # Keep removing lines until we hit an empty line.
             while len(line[1:].strip())>0:
                 line=ibuf.pop()
@@ -2208,7 +2216,7 @@ def print_matlab(conf,ifilename,ofilename):
             while True:
                 p=re.search('`.*?`',line)
                 if p:
-                    line=line[0:p.start(0)]+line[p.start(0)+1:p.end(0)-1].replace(name,name.upper())+line[p.end(0):]            
+                    line=line[0:p.start(0)]+line[p.start(0)+1:p.end(0)-1].replace(name,name.upper())+line[p.end(0):]
                 else:
                     break
 
@@ -2225,33 +2233,33 @@ def print_matlab(conf,ifilename,ofilename):
 
             if line.find(':::')>0:
                 line=line.replace(':::',':')
-                
+
 
             # Convert remaining :: into :
             line=line.replace('::',':')
 
             outbuf+=line+'\n'
-        else:        
+        else:
             outbuf+=line+'\n'
 
         line=ibuf.pop()
 
     # Append url for quick online help
-    # Find the name of the file + the subdir in the package 
+    # Find the name of the file + the subdir in the package
     # Exclude the first slash in shortpath to not get a double slash, therefore the "+1"
     shortpath=ifilename[len(conf.t.dir)+1:-2]
     url=conf.t.urlbase+shortpath+conf.t.urlext
-    if dooct:        
-        outbuf+=u"%@end verbatim\n" 
+    if dooct:
+        outbuf+=u"%@end verbatim\n"
         outbuf+=u"%@strong{Url}: @url{"+url+"}\n"
         if len(seealso)>0:
             outbuf+=u"%@seealso{"+", ".join(seealso)+"}\n"
-        outbuf+=u"%@end deftypefn\n" 
+        outbuf+=u"%@end deftypefn\n"
 
     else:
         outbuf+=u'%\n'
         outbuf+=u'%   Url: '+url+'\n'
-    
+
     # --- Append header
     # Append empty line to seperate header from help section
     outbuf+=u'\n'
@@ -2272,14 +2280,14 @@ def print_matlab(conf,ifilename,ofilename):
 
 # This factory function creates function or script file objects
 # depending on whether the first word of the first line is 'function'
-def matfile_factory(conf,fname):
-    
+def matfile_factory(conf,fname,targfname=''):
+
     buf=safereadlines(os.path.join(conf.g.projectdir,fname+'.m'))
 
     if buf[0].split()[0]=='function' and not '%RUNASSCRIPT' in buf[0]:
-        return FunPrinter(conf,fname)
+        return FunPrinter(conf,fname,targfname)
     else:
-        return ExamplePrinter(conf,fname)
+        return ExamplePrinter(conf,fname,targfname)
 
 def find_indent(line):
     ii=0
@@ -2311,7 +2319,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         conf.t=TexConf(conf.g)
 
     if target=='mat':
-        conf.t=MatConf(conf.g)        
+        conf.t=MatConf(conf.g)
 
     conf.t.basetype=targetname
     conf.t.indexfiles=find_indexfiles(projectdir)
@@ -2319,7 +2327,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     safe_mkdir(conf.t.dir)
 
     # Copy the startup.m file to the temporary directory
-    shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)        
+    shutil.copy(os.path.join(confdir,'startup.m'),conf.g.tmpdir)
 
     if conf.t.basetype=='php' or conf.t.basetype=='tex' or conf.t.basetype=='html':
 
@@ -2338,13 +2346,13 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
         for fname in conf.t.indexfiles:
             P=ContentsPrinter(conf,fname)
-            # Create list of files with subdir appended	
+            # Create list of files with subdir appended
             subdir,fname=os.path.split(fname)
 
             for name in P.files:
                 if not name in conf.g.ignorelist:
                     allfiles.append(os.path.join(subdir,name))
-                    lookupsubdir[name]=subdir
+                    lookupsubdir[name]= subdir if subdir else 'base'
                 else:
                     print '   IGNORING ',name
 
@@ -2396,24 +2404,28 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         # Print Contents files
         lookupsubdir={}
         for fname in conf.t.indexfiles:
-            P=ContentsPrinter(conf,fname)
+            dirname = os.path.dirname(fname)
+            targindex = os.path.join(dirname if dirname else 'base','index')
+            #print('prd:'  +dirname)
             if do_rebuild_file(os.path.join(conf.g.projectdir,fname+'.m'),
-                               os.path.join(conf.t.dir,os.path.dirname(fname),'index'+fileext),
+                               os.path.join(conf.t.dir,targindex+fileext),
                                rebuildmode):
+                P=ContentsPrinter(conf,fname,targindex)
                 P.write_the_file()
 
 
         for fname in allfiles:
-            sourcefile=os.path.join(conf.g.projectdir,fname+'.m')
+            sourcefile = os.path.join(conf.g.projectdir, fname + '.m')
+            subdir, tail = os.path.split(fname)
+            targfname = os.path.join(conf.lookupsubdir[tail],tail)
+            targetfile = os.path.join(conf.t.dir, targfname + fileext)
             if not os.path.exists(sourcefile):
                 userError('Missing the file %s which was specified in a Contents.m file' % fname)
 
-            if do_rebuild_file(sourcefile,os.path.join(conf.t.dir,fname+fileext),
-                               rebuildmode):
+            if do_rebuild_file(sourcefile, targetfile, rebuildmode):
                 print 'Rebuilding '+conf.t.basetype+' '+fname
 
-
-                P=matfile_factory(conf,fname)
+                P=matfile_factory(conf,fname,targfname)
                 P.write_the_file()
 
         # Post-stuff, copy the images directory
@@ -2449,7 +2461,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
 
     if conf.t.basetype=='mat':
-          
+
         matExport(conf)
 
         import stat
@@ -2458,11 +2470,11 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             for mfile in filter(lambda x: x[-2:]=='.m',files):
                 fullmfile = os.path.join(root,mfile)
                 print 'MAT '+fullmfile
-                # Make sure m-files are not executable 
+                # Make sure m-files are not executable
                 os.chmod(fullmfile, os.stat(fullmfile).st_mode &
                          ~(stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH))
                 print_matlab(conf,fullmfile,fullmfile)
-         
+
 
     if conf.t.basetype=='verify':
 
@@ -2510,7 +2522,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     if args.script:
         s=os.path.join(conf.t.confdir,args.script)
 
-        newlocals=locals()        
+        newlocals=locals()
         execfile(s,globals(),newlocals)
 
     if args.addon:
@@ -2545,7 +2557,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         idxfile.write(conf.g.octtitle+'\n')
         for fname in conf.t.indexfiles:
             P=ContentsPrinter(conf,fname)
-            # Create list of files with subdir appended	
+            # Create list of files with subdir appended
             subdir,fname=os.path.split(fname)
 
             if len(subdir)==0:
@@ -2598,7 +2610,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
 
         # Copy all the files in the package to the inst dir
         os.system('cp -R '+conf.t.codedir+'/* '+inst)
-            
+
         # Move the necessary files down in the file hirachy to the base dir
         shutil.move(os.path.join(inst,'NEWS'),pkgroot)
         shutil.move(os.path.join(inst,'COPYING'),pkgroot)
@@ -2655,9 +2667,9 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
     if args.upload:
         s=os.path.join(conf.t.confdir,'upload.py')
 
-        newlocals=locals()        
+        newlocals=locals()
         execfile(s,globals(),newlocals)
-        
+
 # ------------------ Run the program from the command line -------------
 
 # Parse the command line options
