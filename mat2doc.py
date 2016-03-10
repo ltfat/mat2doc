@@ -19,6 +19,7 @@ import sys,os,os.path,string,re,codecs,shutil,posixpath,datetime
 import argparse
 import distutils.dir_util
 from subprocess import *
+import re
 
 # Remove when unix2dos has been converted to the new system
 import commands
@@ -262,14 +263,38 @@ def rmrf(s):
             os.rmdir(os.path.join(root, name))
 
 # Find all the Contents.m files
-def find_indexfiles(projectdir):
+def find_indexfiles(projectdir, ignorelist):
     indexfiles=[]
     for root, dirs, files in os.walk(projectdir, topdown=False):
         for name in files:
             if name=='Contents.m':
                 s=os.path.relpath(os.path.join(root, name),projectdir)
-                # strip .m
-                s=s[:-2]
+                if s not in ignorelist:
+                    # strip .m
+                    s=s[:-2]
+                    indexfiles.append(s)
+
+    return indexfiles
+
+# Build ignore list for all files that should not be compiled just copied
+def build_ignoredocrelist(projectdir, ignore_file):
+    ignoredirlist = safereadlines(ignore_file)
+
+    ignoredirlist = ['^{}/{}$'.format(projectdir, f.replace('*', '.*')) for f in ignoredirlist]
+
+    indexfiles = []
+
+    for root, dirs, files in os.walk(projectdir, topdown=False):
+        for name in files:
+            if name.split('.')[-1] != 'm':
+                continue
+            p = os.path.join(root, name)
+            ok = True
+            for r in ignoredirlist:
+                if re.match(r, p):
+                    ok = False
+            if not ok:
+                s = os.path.relpath(os.path.join(root, name), projectdir)
                 indexfiles.append(s)
 
     return indexfiles
@@ -606,6 +631,14 @@ class GlobalConf(ConfType):
             self.ignorelist=safereadlines(s)
         else:
             self.ignorelist=[]
+
+        s=os.path.join(self.confdir,'nodocs')
+        if os.path.exists(s):
+            self.ignorelist=safereadlines(s)
+        else:
+            self.ignorelist=[]
+
+        print(self.ignorelist)
 
         # if "versionfile" exists, use it to override "version"
         if hasattr(self,"versionfile"):
@@ -964,7 +997,7 @@ class BasePrinter(object):
         fullname=os.path.join(self.c.t.dir,fname)
         base,name=os.path.split(fullname)
         if not os.path.exists(base):
-            os.mkdir(base)
+            os.makedirs(base)
 
         safewritelines(fullname,buf)
 
@@ -1489,9 +1522,12 @@ class ExecPrinter(BasePrinter):
 
             seealso+='<ul>\n'
             for see in seealsolist:
-                href = os.path.join(self.c.t.urlbase,self.c.lookupsubdir[see],
-                                    see+doctypestr+self.c.t.fext)
-                seealso+='<li><a href="'+href+'">'+see+'</a></li>\n'
+                try:
+                    seealso+='<li><a href="'+os.path.join(self.c.t.urlbase,self.c.lookupsubdir[see],see+self.c.t.fext)+'">'+see+'</a></li>\n'
+                except KeyError:
+                    if hasattr(conf.t,'extlinks'):
+                        seealso+='<li><a href="'+self.c.t.extlinks[see]+'">'+see+'</a></li>\n'
+
             seealso+='</ul>\n'
 
         return seealso
@@ -2322,7 +2358,13 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         conf.t=MatConf(conf.g)
 
     conf.t.basetype=targetname
-    conf.t.indexfiles=find_indexfiles(projectdir)
+
+    ignore_folder = os.path.join(projectdir,'mat2doc','nodocs')
+    if os.path.exists(ignore_folder):
+        nodocslist = build_ignoredocrelist(projectdir, ignore_folder)
+    else:
+        nodocslist=[]
+    conf.t.indexfiles=find_indexfiles(projectdir, nodocslist )
 
     safe_mkdir(conf.t.dir)
 
@@ -2375,6 +2417,11 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             for funname in lookupsubdir.keys():
                 tn=os.path.join(conf.t.urlbase,lookupsubdir[funname],funname)+conf.t.fext
                 f.write('.. |'+funname+'| replace:: :linkrole:`<a href="'+tn+'">'+funname+'</a>`\n')
+
+            if hasattr(conf.t,'extlinks'):
+                for (key,val) in conf.t.extlinks.items():
+                    f.write('.. |'+key+'| replace:: :linkrole:`<a href="'+val+'">'+key+'</a>`\n')
+                
 
         # flush the file, because we need it again very quickly
         f.flush()
@@ -2467,7 +2514,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         import stat
         for root, dirs, files in os.walk(conf.t.dir, topdown=False):
             # Walk through the .m files
-            for mfile in filter(lambda x: x[-2:]=='.m',files):
+            for mfile in filter(lambda x: os.path.relpath(os.path.join(root, x),conf.t.dir) not in nodocslist, filter(lambda x: x[-2:]=='.m',files)):
                 fullmfile = os.path.join(root,mfile)
                 print 'MAT '+fullmfile
                 # Make sure m-files are not executable
