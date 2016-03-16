@@ -1525,7 +1525,7 @@ class ExecPrinter(BasePrinter):
                 try:
                     seealso+='<li><a href="'+os.path.join(self.c.t.urlbase,self.c.lookupsubdir[see],see+self.c.t.fext)+'">'+see+'</a></li>\n'
                 except KeyError:
-                    if hasattr(conf.t,'extlinks'):
+                    if hasattr(self.c.t,'extlinks'):
                         seealso+='<li><a href="'+self.c.t.extlinks[see]+'">'+see+'</a></li>\n'
 
             seealso+='</ul>\n'
