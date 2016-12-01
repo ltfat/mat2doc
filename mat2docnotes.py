@@ -34,7 +34,7 @@
 #
 # Note config file
 #    Mandatory:
-#       type [documentation,article,poster]
+#       type [documentation,article,poster,conference]
 #       title The LTFAT Notes series
 #       author jv ps
 #       year current or number
@@ -42,6 +42,7 @@
 #       URL [URL] # use external link instead of pdf
 #       web [www|auto] #use www subdir as a webpage for the paper, auto will generate a
 #                       generic page with link to the archive
+#       webextern [URL] # use external url for note webpage 
 #       archive toarchive # pack contents of toarchive subdir and include it in www 
 
 
@@ -264,7 +265,7 @@ def parseauthors(authorfile):
 
     return authdict
 
-def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
+def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype='',webpageprefix=''):
 
     obuf=[]
 
@@ -285,7 +286,7 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
         obuf.append(note+'</td><td>')
 
         if 'URL' not in notedict:
-            obuf.append('<notes_title><a href="'+noteprefix+note+'.pdf">'+notedict['title']+'</a></notes_title><br>')
+            obuf.append('<notes_title><a href="'+webpageprefix+noteprefix+note+'.pdf">'+notedict['title']+'</a></notes_title><br>')
         else:
             obuf.append('<notes_title><a href="'+notedict['URL']+'">'+notedict['title']+'</a></notes_title><br>') 
 
@@ -305,16 +306,18 @@ def createindexpage(noteprefix,notesdir,allnotes,keys,filename,targettype=''):
         obuf.append(s+'</notes_author><br>')
 
         if notedict['poster']:
-            obuf.append('<notes_third>Download <a href="'+noteprefix+note+'_poster.pdf">poster</a></notes_third><br>')
+            obuf.append('<notes_third>Download <a href="'+webpageprefix+noteprefix+note+'_poster.pdf">poster</a></notes_third><br>')
 
         if notedict['slides']:
-            obuf.append('<notes_third>Download <a href="'+noteprefix+note+'_slides.pdf">slides</a></notes_third><br>')
+            obuf.append('<notes_third>Download <a href="'+webpageprefix+noteprefix+note+'_slides.pdf">slides</a></notes_third><br>')
 
         if notedict['bibentry']:
-            obuf.append('<notes_third><a href="'+noteprefix+note+'.bib">Cite this paper</a></notes_third><br>')
+            obuf.append('<notes_third><a href="'+webpageprefix+noteprefix+note+'.bib">Cite this paper</a></notes_third><br>')
 
-        if 'web' in notedict:
-            obuf.append('<notes_third><a href="'+note+'">Webpage</a></notes_third><br>')
+        if 'webextern' in notedict:
+            obuf.append('<notes_third><a href="'+notedict['webextern']+'">Webpage</a></notes_third><br>')
+        elif 'web' in notedict:
+            obuf.append('<notes_third><a href="'+webpageprefix+note+'">Webpage</a></notes_third><br>')
 
         if len(notedict['obsoletedby'])>0:
             obuf.append('<notes_third>This note has been made obsolete by ')
@@ -361,124 +364,126 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
     # Put the newest papers first
     keys.reverse()
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_number.'+targettype),targettype)
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_number.'+targettype),targettype,getattr(t,'webexternprefix',''))
 
     keys.sort(key=lambda x: allnotesdict[x]['year'])
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_year.'+targettype),targettype)
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_year.'+targettype),targettype,getattr(t,'webexternprefix',''))
 
     keys.sort()
     keys.sort(key=lambda x: allnotesdict[x]['type'])
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_type.'+targettype),targettype)
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_type.'+targettype),targettype,getattr(t,'webexternprefix',''))
 
     keys.sort()
     keys.sort(key=lambda x: allnotesdict[x]['author'][0]['name'].split(' ')[:-1])
 
-    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_author.'+targettype),targettype)
+    createindexpage(noteprefix,notesdir,allnotesdict,keys,os.path.join(notehtml,'by_author.'+targettype),targettype,getattr(t,'webexternprefix',''))
 
 
     # The following loop takes one note at a time
     for note in notes:
         notename=noteprefix+note
 
+        if not hasattr(t,'webexternprefix'):
+            if 'URL' not in allnotesdict[note]:
+                shutil.copy2(os.path.join(notesdir,note,notename+'.pdf'),
+                        os.path.join(notehtml,notename+'.pdf'))
 
-        if 'URL' not in allnotesdict[note]:
-            shutil.copy2(os.path.join(notesdir,note,notename+'.pdf'),
-                    os.path.join(notehtml,notename+'.pdf'))
+            if allnotesdict[note]['bibentry']:
+                shutil.copy2(os.path.join(notesdir,note,'bibentry'),
+                        os.path.join(notehtml,notename+'.bib'))
 
-        if allnotesdict[note]['bibentry']:
-            shutil.copy2(os.path.join(notesdir,note,'bibentry'),
-                    os.path.join(notehtml,notename+'.bib'))
+            if allnotesdict[note]['poster']:
+                shutil.copy2(os.path.join(notesdir,note,+'poster.pdf'),
+                        os.path.join(notehtml,notename+'_poster.pdf'))
 
-        if allnotesdict[note]['poster']:
-            shutil.copy2(os.path.join(notesdir,note,+'poster.pdf'),
-                    os.path.join(notehtml,notename+'_poster.pdf'))
+            if allnotesdict[note]['slides']:
+                shutil.copy2(os.path.join(notesdir,note,'slides.pdf'),
+                        os.path.join(notehtml,notename+'_slides.pdf'))
 
-        if allnotesdict[note]['slides']:
-            shutil.copy2(os.path.join(notesdir,note,'slides.pdf'),
-                    os.path.join(notehtml,notename+'_slides.pdf'))
+            if 'web' in allnotesdict[note] and not hasattr(t,'webpageextern'):
+                webdirpath = os.path.join(notesdir,note,allnotesdict[note]['web'])
+                targetwebdirpath = os.path.join(notehtml,note)
 
-        if 'web' in allnotesdict[note]:
-            webdirpath = os.path.join(notesdir,note,allnotesdict[note]['web'])
-            targetwebdirpath = os.path.join(notehtml,note)
+                if not os.path.exists(webdirpath):
+                    print('    Directory '+webdirpath+' does not exist.')
+                else:
+                    webdirlist = os.listdir(webdirpath)
 
-            if not os.path.exists(webdirpath):
-                print('    Directory '+webdirpath+' does not exist.')
-            else:
-                webdirlist = os.listdir(webdirpath)
+                    othertargettypes = list(targettypes)
+                    othertargettypes.remove(targettype)
+                    ignorefiles = [f for f in webdirlist
+                                   if any(f.endswith(suffix) for suffix in othertargettypes)]
 
-                othertargettypes = list(targettypes)
-                othertargettypes.remove(targettype)
-                ignorefiles = [f for f in webdirlist
-                               if any(f.endswith(suffix) for suffix in othertargettypes)]
+                    if not 'index.'+targettype in webdirlist:
+                        # If there is no index file, search for include_ files
+                        incfiles = filter(lambda f: f.startswith('include_'), webdirlist)
+                        inccontentfile = os.path.join(webdirpath,'include_content.html')
+                        ignorefiles.extend(incfiles)
 
-                if not 'index.'+targettype in webdirlist:
-                    # If there is no index file, search for include_ files
-                    incfiles = filter(lambda f: f.startswith('include_'), webdirlist)
-                    inccontentfile = os.path.join(webdirpath,'include_content.html')
-                    ignorefiles.extend(incfiles)
+                    othertargettypes = list(targettypes)
+                    othertargettypes.remove(targettype)
+                    shutil.copytree(webdirpath,targetwebdirpath,
+                            ignore=lambda d, files: [f for f in files if f in ignorefiles])
 
-                othertargettypes = list(targettypes)
-                othertargettypes.remove(targettype)
-                shutil.copytree(webdirpath,targetwebdirpath,
-                        ignore=lambda d, files: [f for f in files if f in ignorefiles])
+                    if not 'index.'+targettype in webdirlist:
+                        if not 'include_content.html' in incfiles:
+                            print('{} not found.'.format(inccontentfile))
+                            sys.exit(-1)
 
-                if not 'index.'+targettype in webdirlist:
-                    if not 'include_content.html' in incfiles:
-                        print('{} not found.'.format(inccontentfile))
-                        sys.exit(-1)
+                        # Try to read template from the conf object and fallback
+                        # to target/template.hml if .template is not defined.
+                        templatepath = getattr(t,'template',os.path.join(t.confdir,'template.'+targettype))
 
-                    # Try to read template from the conf object and fallback
-                    # to target/template.hml if .template is not defined.
-                    templatepath = getattr(t,'template',os.path.join(t.confdir,'template.'+targettype))
+                        if not os.path.exists(templatepath):
+                            print('{} not found.'.format(templatepath))
+                            sys.exit(-1)
 
-                    if not os.path.exists(templatepath):
-                        print('{} not found.'.format(templatepath))
-                        sys.exit(-1)
+                        with open(inccontentfile,'r') as inccont:
+                            include_content = inccont.read()
 
-                    with open(inccontentfile,'r') as inccont:
-                        include_content = inccont.read()
+                        with open(templatepath,'r') as tt:
+                            authornames = [f['name'] for f in allnotesdict[note]['author']]
+                            repldict = {'TITLE'   : noteprefix+note,
+                                        'NAME'    : allnotesdict[note]['title'],
+                                        'CITATION': ', '.join(authornames) + ': ' + allnotesdict[note]['title'],
+                                        'CONTENT' : include_content
+                                    }
+                            template = tt.read();
+                            for kv, expansion in repldict.items():
+                                template = template.replace('{'+kv+'}',expansion)
 
-                    with open(templatepath,'r') as tt:
-                        authornames = [f['name'] for f in allnotesdict[note]['author']]
-                        repldict = {'TITLE'   : noteprefix+note,
-                                    'NAME'    : allnotesdict[note]['title'],
-                                    'CITATION': ', '.join(authornames) + ': ' + allnotesdict[note]['title'],
-                                    'CONTENT' : include_content
-                                }
-                        template = tt.read();
-                        for kv, expansion in repldict.items():
-                            template = template.replace('{'+kv+'}',expansion)
+                            # The following crashes with KeyError if any of the keywords 
+                            # is not found in the template
+                            #template = tt.read().format(TITLE= noteprefix+note,
+                            #                           NAME= allnotesdict[note]['title'],
+                            #                           CITATION=', '.join(authornames) + ': '
+                            #                           + allnotesdict[note]os.path.join(notehtml,note,noteprefix+note+'.zip')['title'],
+                            #                           CONTENT=include_content)
 
-                        # The following crashes with KeyError if any of the keywords 
-                        # is not found in the template
-                        #template = tt.read().format(TITLE= noteprefix+note,
-                        #                           NAME= allnotesdict[note]['title'],
-                        #                           CITATION=', '.join(authornames) + ': '
-                        #                           + allnotesdict[note]os.path.join(notehtml,note,noteprefix+note+'.zip')['title'],
-                        #                           CONTENT=include_content)
+                        with open(os.path.join(targetwebdirpath,'index.'+targettype),'w') as tt:
+                            tt.write(template)
 
-                    with open(os.path.join(targetwebdirpath,'index.'+targettype),'w') as tt:
-                        tt.write(template)
+            if 'archive' in allnotesdict[note]:
+                archivepath = os.path.join(notesdir,note,allnotesdict[note]['archive'])
+                targetarchivepath = os.path.join(notehtml,note,noteprefix+note+'.zip') 
 
-
-        if 'archive' in allnotesdict[note]:
-            archivepath = os.path.join(notesdir,note,allnotesdict[note]['archive'])
-            targetarchivepath = os.path.join(notehtml,note,noteprefix+note+'.zip') 
-
-            if not os.path.exists(archivepath):
-                print('    Directory '+archivepath+' does not exist.')
-            else:
-                # pack contents of archivepath directory to 
-                #packcommand = 'zip -jr ' + os.path.join(notehtml,note,noteprefix+note+'.zip') + ' ' + archivepath
-                #print(packcommand)
-                #os.system(packcommand)
-                with zipfile.ZipFile(targetarchivepath, mode='w') as zf:
-                    for f in os.listdir(archivepath):
-                        zf.write(os.path.join(archivepath,f),
-                                compress_type=zipfile.ZIP_DEFLATED,
-                                arcname=f)
+                if not os.path.exists(archivepath):
+                    print('    Directory '+archivepath+' does not exist.')
+                else:
+                    # pack contents of archivepath directory to 
+                    #packcommand = 'zip -jr ' + os.path.join(notehtml,note,noteprefix+note+'.zip') + ' ' + archivepath
+                    #print(packcommand)
+                    #os.system(packcommand)
+                    rootLen = len(archivepath) + 1
+                    with zipfile.ZipFile(targetarchivepath, mode='w') as zf:
+                        for base, dirs, files in os.walk(archivepath):
+                            for f in files:
+                                fn = os.path.join(base,f)
+                                zf.write(fn,
+                                        compress_type=zipfile.ZIP_DEFLATED,
+                                        arcname=fn[rootLen:])
 
 def do_the_stuff(projectdir,args):
     # This directory exists for sure
