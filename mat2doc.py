@@ -286,6 +286,7 @@ def build_ignoredocrelist(projectdir, ignore_file):
 
     for root, dirs, files in os.walk(projectdir, topdown=False):
         for name in files:
+            print name
             if name.split('.')[-1] != 'm':
                 continue
             p = os.path.join(root, name)
@@ -610,10 +611,13 @@ class ConfType:
 
 
 class GlobalConf(ConfType):
-    def __init__(self,confdir,projectname,projectdir):
+    def __init__(self,confdir,projectname,projectdir,outputdir=''):
         ConfType.__init__(self,confdir)
 
         # Sanitize the output directory for safety
+        if outputdir:
+            self.outputdir = outputdir
+
         self.outputdir=os.path.abspath(os.path.expanduser(self.outputdir))
 
         self.projectname=projectname
@@ -2339,7 +2343,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     conf=ConfContainer()
 
     # Global
-    conf.g=GlobalConf(confdir,projectname,projectdir)
+    conf.g=GlobalConf(confdir,projectname,projectdir,args.outputdir)
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
     conf.g.execplot=do_execplot
     conf.g.args=args
@@ -2361,7 +2365,10 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     ignore_folder = os.path.join(projectdir,'mat2doc','nodocs')
     if os.path.exists(ignore_folder):
+        print projectdir
+        print ignore_folder
         nodocslist = build_ignoredocrelist(projectdir, ignore_folder)
+        print 'after'
     else:
         nodocslist=[]
     conf.t.indexfiles=find_indexfiles(projectdir, nodocslist )
@@ -2750,6 +2757,8 @@ parser.add_argument('--tgz',
                   help="Create an compressed tar file")
 
 parser.add_argument('--script',help="Script to run after processing the files, but before uploading")
+
+parser.add_argument('--outputdir',help="Destination directory. Overrides outputdir from conf.py")
 
 parser.add_argument('--addon',help="Directory to add to the package. See the 'addonbase' global setting")
 
