@@ -2650,17 +2650,17 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         shutil.copy(os.path.join(conf.t.dir,'DESCRIPTION'),pkgroot)
         shutil.copy(os.path.join(conf.t.dir,'INDEX'),pkgroot)
 
-        s=os.path.join(conf.t.confdir,'PKG_ADD')
-        if os.path.exists(s):
-            shutil.copy(s,pkgroot)
-
-        s=os.path.join(conf.t.confdir,'PKG_DEL')
-        if os.path.exists(s):
-            shutil.copy(s,pkgroot)
-
         inst=os.path.join(pkgroot,'inst')
         safe_mkdir(inst)
         rmrf(inst)
+
+        # s=os.path.join(conf.t.confdir,'PKG_ADD')
+        # if os.path.exists(s):
+        #     shutil.copy(s,inst)
+        #
+        # s=os.path.join(conf.t.confdir,'PKG_DEL')
+        # if os.path.exists(s):
+        #     shutil.copy(s,inst)
 
         # Copy all the files in the package to the inst dir
         os.system('cp -R '+conf.t.codedir+'/* '+inst)
