@@ -2342,6 +2342,9 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
     conf=ConfContainer()
 
+    if args.projectname:
+        projectname = args.projectname
+
     # Global
     conf.g=GlobalConf(confdir,projectname,projectdir,args.outputdir)
     conf.g.bibfile=os.path.join(projectdir,'mat2doc','project')
@@ -2687,6 +2690,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         # Pack it up, better option would be the tarfile module
         packagename=conf.g.packagename+'.tar.gz'
         s='cd '+conf.t.dir+'; tar zcvf '+packagename+' '+conf.g.projectname
+        print("Executing {}".format(s))
         os.system(s)
 
         dest=os.path.join(conf.g.filesdir,packagename)
@@ -2759,6 +2763,7 @@ parser.add_argument('--tgz',
 parser.add_argument('--script',help="Script to run after processing the files, but before uploading")
 
 parser.add_argument('--outputdir',help="Destination directory. Overrides outputdir from conf.py")
+parser.add_argument('--projectname',help="Directly specify project name.")
 
 parser.add_argument('--addon',help="Directory to add to the package. See the 'addonbase' global setting")
 
