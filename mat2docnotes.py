@@ -395,7 +395,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
                         os.path.join(notehtml,notename+'.bib'))
 
             if allnotesdict[note]['poster']:
-                shutil.copy2(os.path.join(notesdir,note,+'poster.pdf'),
+                shutil.copy2(os.path.join(notesdir,note,'poster.pdf'),
                         os.path.join(notehtml,notename+'_poster.pdf'))
 
             if allnotesdict[note]['slides']:
