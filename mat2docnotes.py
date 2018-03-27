@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Copyright (C) 2010-2013 Peter L. Soendergaard <soender@users.sourceforge.net>.
 #
@@ -46,7 +46,7 @@
 #       archive toarchive # pack contents of toarchive subdir and include it in www 
 
 
-from __future__ import print_function
+
 import sys,os,os.path,time,shutil,distutils.core
 import argparse
 import zipfile
@@ -114,11 +114,11 @@ class ConfType:
         if os.path.exists(s):
             newlocals=locals()
 
-            execfile(s,globals(),newlocals)
+            exec(compile(open(s).read(), s, 'exec'),globals(),newlocals)
 
             # Update the object with the dictionary of keys read from
             # the configuration file
-            for k, v in newlocals.items():
+            for k, v in list(newlocals.items()):
                 setattr(self, k, v)        
 
         s=os.path.join(self.confdir,'confshadow.py')
@@ -126,11 +126,11 @@ class ConfType:
         if os.path.exists(s):
             newlocals=locals()
 
-            execfile(s,globals(),newlocals)
+            exec(compile(open(s).read(), s, 'exec'),globals(),newlocals)
 
             # Update the object with the dictionary of keys read from
             # the configuration file
-            for k, v in newlocals.items():
+            for k, v in list(newlocals.items()):
                 setattr(self, k, v)        
 
 # rm -Rf
@@ -155,7 +155,7 @@ class NotesError(Exception):
 def getnotenumbers(notesdir):
 
     allnotes=os.listdir(notesdir)
-    allnotes = filter(lambda x: (os.path.isdir(os.path.join(notesdir,x)) and (x[0].isdigit())),allnotes)
+    allnotes = [x for x in allnotes if (os.path.isdir(os.path.join(notesdir,x)) and (x[0].isdigit()))]
 
     return allnotes
 
@@ -197,7 +197,7 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
         # Expand the authors
         authlist=[]
         for author in notedict['author'].split():
-            if not authdict.has_key(author):
+            if author not in authdict:
                 raise NotesError('Note %s: Author %s not found in dict.' % (note, author))
             authlist.append(authdict[author])
 
@@ -232,7 +232,7 @@ def parseconfigfiles(noteprefix,notesdir,authdict):
 # Return the number of the current notes, given a dictionary of all
 # notes, as returned by parseconfigfiles
 def getcurrentnotes(allnotesdict):
-    allnotes=allnotesdict.keys()
+    allnotes=list(allnotesdict.keys())
     currentnotes=set(allnotes)
 
     for note in allnotes:
@@ -348,7 +348,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
     # Get information from all the note 'config' files
     allnotesdict=parseconfigfiles(noteprefix,notesdir,authdict)
 
-    notes=allnotesdict.keys()
+    notes=list(allnotesdict.keys())
 
     if not os.path.exists(notehtml):
         print('Creating directory ' + notehtml)
@@ -358,7 +358,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
     rmrf(notehtml)
 
     #keys=getcurrentnotes(allnotesdict)
-    keys=allnotesdict.keys()
+    keys=list(allnotesdict.keys())
     keys.sort()
 
     # Put the newest papers first
@@ -418,7 +418,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
 
                     if not 'index.'+targettype in webdirlist:
                         # If there is no index file, search for include_ files
-                        incfiles = filter(lambda f: f.startswith('include_'), webdirlist)
+                        incfiles = [f for f in webdirlist if f.startswith('include_')]
                         inccontentfile = os.path.join(webdirpath,'include_content.html')
                         ignorefiles.extend(incfiles)
 
@@ -451,7 +451,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
                                         'CONTENT' : include_content
                                     }
                             template = tt.read();
-                            for kv, expansion in repldict.items():
+                            for kv, expansion in list(repldict.items()):
                                 template = template.replace('{'+kv+'}',expansion)
 
                             # The following crashes with KeyError if any of the keywords 
@@ -491,8 +491,7 @@ def do_the_stuff(projectdir,args):
     target = args.target
 
     # Target type from target
-    targettype = filter(lambda prefix:
-            target.startswith(prefix),targettypes+['make','clean'])[0]
+    targettype = [prefix for prefix in targettypes+['make','clean'] if target.startswith(prefix)][0]
 
     # Just empty object
     conf=ConfContainer()
@@ -507,7 +506,7 @@ def do_the_stuff(projectdir,args):
 
     if 'make' in targettype:
         notes=getnotenumbers(projectdir)
-        notes = filter(lambda x: (os.path.exists(os.path.join(projectdir,x,'Makefile'))), notes)
+        notes = [x for x in notes if (os.path.exists(os.path.join(projectdir,x,'Makefile')))]
 
         for notenumber in notes:
             print('Trying to make '+conf.g.prefix+notenumber)
@@ -516,7 +515,7 @@ def do_the_stuff(projectdir,args):
     if 'clean' in targettype:
         notes=getnotenumbers(projectdir)
 
-        notes = filter(lambda x: (os.path.exists(os.path.join(projectdir,x,'Makefile'))), notes)
+        notes = [x for x in notes if (os.path.exists(os.path.join(projectdir,x,'Makefile')))]
 
         for notenumber in notes:
             os.system('cd '+os.path.join(projectdir,notenumber)+'; make texclean')
@@ -551,7 +550,7 @@ def main():
     print(', '.join(targets))
 
     # Filter out those which are not recognized as valid targets according to target types 
-    wrongtargets = filter(lambda x: not any(x.startswith(prefix) for prefix in targettypes),targets)
+    wrongtargets = [x for x in targets if not any(x.startswith(prefix) for prefix in targettypes)]
 
     if wrongtargets:
         print('The following directories are not valid targets: {}\n'
