@@ -2674,7 +2674,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         shutil.move(os.path.join(inst,'CITATION'),pkgroot)
 
         # Copy the post_build script, do name substitution and execute it
-        f=open(os.path.join(conf.t.confdir,'post_build.sh'))
+        f=open(os.path.join(conf.t.confdir,'post_build.sh'), encoding="utf-8")
         buf=f.read()
         f.close()
 
