@@ -81,6 +81,7 @@ class ProgramExecuter:
             print("-------------------------------------------------------")
             print(finals)
 
+        finals.insert(0,'LANG=C LC_ALL=C')
         if self.useshell:
             P=Popen(' '.join(finals),shell=True,stdout=PIPE,stderr=PIPE)
         else:
