@@ -2680,7 +2680,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         f.close()
 
         s=os.path.join(conf.t.dir,'post_build.sh')
-        f=open(s,'w')
+        f=open(s,'w', encoding="utf-8")
         f.write(buf.format(VERSION=conf.g.version,INST=inst,CONFDIR=conf.t.confdir))
         f.close()
 
