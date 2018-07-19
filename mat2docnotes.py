@@ -447,6 +447,7 @@ def printnoteshtml(noteprefix,notesdir,notehtml,targettype,t):
                             authornames = [f['name'] for f in allnotesdict[note]['author']]
                             repldict = {'TITLE'   : noteprefix+note,
                                         'NAME'    : allnotesdict[note]['title'],
+                                        'AUTHORNAMES' : ', '.join(authornames),
                                         'CITATION': ', '.join(authornames) + ': ' + allnotesdict[note]['title'],
                                         'CONTENT' : include_content
                                     }
