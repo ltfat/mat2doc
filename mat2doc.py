@@ -1423,7 +1423,9 @@ class ExecPrinter(BasePrinter):
         
         buf = firstpart+secondpart
         
-        if not bool(args.no_description):
+        if bool(args.no_description):
+            buf=  re.sub('XXXDescription','',buf)
+        else:
             buf=  re.sub('XXXDescription','Description',buf)
 
         if 0: #self.c.t.basetype=='tex':
