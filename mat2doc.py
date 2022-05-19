@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys,os,os.path,string,codecs,shutil,posixpath,datetime
-import regex as re
+import sys,os,os.path,string,re,codecs,shutil,posixpath,datetime
 import argparse
 import distutils.dir_util
 from subprocess import *
+import re
 
 # Remove when unix2dos has been converted to the new system
 import subprocess
@@ -1418,11 +1418,9 @@ class ExecPrinter(BasePrinter):
                     keystring=secondpart[pos+5:endpos].strip()
                     secondpart=secondpart[:pos]+"'"+keystring+"'"+secondpart[endpos:]
 
-        
+
         buf = firstpart+secondpart
-        
-        if args.no_description:
-            buf=  re.sub('XXXDescription','Description',buf)
+        buf=  re.sub('XXXDescription','Description',buf)
 
         if 0: #self.c.t.basetype=='tex':
             if self.fname=='dwilt':
@@ -2368,7 +2366,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         conf.t=MatConf(conf.g)
 
     conf.t.basetype=targetname
-    
+
     ignore_folder = os.path.join(projectdir,'mat2doc','nodocs')
     if os.path.exists(ignore_folder):
         print(projectdir)
@@ -2770,10 +2768,6 @@ parser.add_argument('--projectname',help="Directly specify project name.")
 
 parser.add_argument('--addon',help="Directory to add to the package. See the 'addonbase' global setting")
 
-parser.add_argument('--no-description',
-                  action="store_true", default=False,
-                  help="Do not add a description keyword to mat2docs output")
-
 # Mutually exclusive : --execplot and --no-execplot
 group1 = parser.add_mutually_exclusive_group()
 group1.add_argument("--execplot", action="store_true", help='Process examples and demos')
@@ -2795,7 +2789,6 @@ group3.add_argument("--dos", action="store_true", default=False,
 
 group3.add_argument("--unix", action="store_true", default=False,
                    help='Forces output to UNIX lineendings (LF)')
-
 
 # Optional encoding conversion
 parser.add_argument('--encoding',help="Character encoding to use for Utf-8 files if conversion is possible. Use encoging recognized by iconv (Type iconv -l for complete list).")
