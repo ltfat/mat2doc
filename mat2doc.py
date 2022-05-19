@@ -20,7 +20,6 @@ import regex as re
 import argparse
 import distutils.dir_util
 from subprocess import *
-import re
 
 # Remove when unix2dos has been converted to the new system
 import subprocess
@@ -1376,9 +1375,10 @@ class ExecPrinter(BasePrinter):
         #sys.exit()
 
         # Clean up from table transformation
-        
-        splitidx=buf.find('XXXDescription')
-
+        if not args.no_description:
+            splitidx=buf.find('XXXDescription')
+        else:
+            splitidx=1
         firstpart =buf[0:splitidx]
         secondpart=buf[splitidx:]
 
