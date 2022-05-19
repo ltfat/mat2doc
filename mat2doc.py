@@ -1027,8 +1027,8 @@ class ExecPrinter(BasePrinter):
             print('   <'+out['name'].lower()+'> <'+self.fname+'>')
             sys.exit()
 
-
         out['description']=space.join(line[1:]).strip()
+
         self.title=out['name']+' - '+out['description']
 
         if len(out['description'])==0:
@@ -1375,10 +1375,8 @@ class ExecPrinter(BasePrinter):
         #sys.exit()
 
         # Clean up from table transformation
-        if not args.no_description:
-            splitidx=buf.find('XXXDescription')
-        else:
-            splitidx=1
+
+        splitidx=buf.find('XXXDescription')
         firstpart =buf[0:splitidx]
         secondpart=buf[splitidx:]
 
@@ -1423,7 +1421,7 @@ class ExecPrinter(BasePrinter):
         
         buf = firstpart+secondpart
         
-        if not bool(args.no_description):
+        if args.no_description:
             buf=  re.sub('XXXDescription','Description',buf)
 
         if 0: #self.c.t.basetype=='tex':
