@@ -288,7 +288,6 @@ def build_ignoredocrelist(projectdir, ignore_file):
 
     for root, dirs, files in os.walk(projectdir, topdown=False):
         for name in files:
-            print(name)
             if name.split('.')[-1] != 'm':
                 continue
             p = os.path.join(root, name)
@@ -419,7 +418,6 @@ def safewrite(filename,buf):
         f=file(filename,'w')
     else:
         f=codecs.open(filename,'w',encoding="utf-8")
-
     f.write(buf)
     f.close()
 
@@ -1023,7 +1021,8 @@ class ExecPrinter(BasePrinter):
 
         out['name']=line[0]
 
-        if out['name'].lower()!=self.fname:
+        #if out['name'].lower()!=self.fname:
+        if out['name']!=self.fname and out['name'].lower()!=self.fname:
             print('   ERROR: Mis-match between function name and help text name.')
             print('   <'+out['name'].lower()+'> <'+self.fname+'>')
             sys.exit()
@@ -1098,6 +1097,7 @@ class ExecPrinter(BasePrinter):
                         #
                         # Similarly, then function name is always before "(" or ";"
                         usage_name=s.split('=')[-1].split('(')[0].split(';')[0].strip()
+                        print(usage_name)
                         if usage_name!=self.fname:
                             print('   ERROR: Mis-match between function name and usage name.')
                             print('   <'+usage_name+'> <'+self.fname+'>')
@@ -1274,6 +1274,7 @@ class ExecPrinter(BasePrinter):
 
         # Read the code from a generated file into a buffer
         s=os.path.join(self.c.t.codedir,self.fullname+'.m')
+        
         if os.path.exists(s):
             self.codebuf=saferead(s)
         else:
@@ -1683,8 +1684,11 @@ class ContentsPrinter(BasePrinter):
                 buf.append(line)
                 pairs=parse_pairs(sep,buf,find_indent(line))
                 for (key,sep,val) in pairs:
-                    obuf.append(['li',key.lower(),val])
-                    files.append(key.lower())
+                    #print(key)
+                    #obuf.append(['li',key.lower(),val])
+                    obuf.append(['li',key,val])
+                    #files.append(key.lower())
+                    files.append(key)
 
                 # Append an empty line, it is eaten by parse_pairs
                 obuf.append(['text',''])
@@ -2483,6 +2487,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             subdir, tail = os.path.split(fname)
             targfname = os.path.join(conf.lookupsubdir[tail],tail)
             targetfile = os.path.join(conf.t.dir, targfname + fileext)
+            
             if not os.path.exists(sourcefile):
                 userError('Missing the file %s which was specified in a Contents.m file' % fname)
 
@@ -2531,6 +2536,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         import stat
         for root, dirs, files in os.walk(conf.t.dir, topdown=False):
             # Walk through the .m files
+            print(files)
             for mfile in [x for x in [x for x in files if x[-2:]=='.m'] if os.path.relpath(os.path.join(root, x),conf.t.dir) not in nodocslist]:
                 fullmfile = os.path.join(root,mfile)
                 print('MAT '+fullmfile)
@@ -2538,6 +2544,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
                 os.chmod(fullmfile, os.stat(fullmfile).st_mode &
                          ~(stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH))
                 print_matlab(conf,fullmfile,fullmfile)
+                print(mfile)
 
 
     if conf.t.basetype=='verify':
@@ -2629,6 +2636,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
             else:
                 idxfile.write(subdir+'\n')
             for name in P.files:
+                print(name)
                 if not name in conf.g.ignorelist:
                     allfiles.append(os.path.join(subdir,name))
                     lookupsubdir[name]=subdir
