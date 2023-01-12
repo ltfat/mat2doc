@@ -953,10 +953,10 @@ class MatConf(TargetConf):
 
 
 class BasePrinter(object):
-    def __init__(self,conf,fname,targfname=''):
+    def __init__(self,conf,fname,do_execplot, targfname=''):
         self.c=conf
         self.targfullname = targfname if targfname else fname
-
+        self.execplot = do_execplot
         # self.fname contains the name of the file
         # self.subdir contains the relative subdir in which the file is placed
         # self.fullname contains both
@@ -994,7 +994,7 @@ class BasePrinter(object):
         attriblist=[x for x in buf if len(x)>0 and x[0]=='%' and 'MAT2DOC:' in x]
         attriblist=[x.split(':') for x in attriblist]
         
-        self.flag = 1
+        #self.flag = 1
 
         self.parse()
 
@@ -1013,7 +1013,7 @@ class ExecPrinter(BasePrinter):
 
 
     def parse(self):
-
+        #print(self.c.execplot)
         space=' '
         out={}
 
@@ -1573,11 +1573,15 @@ class ExamplePrinter(ExecPrinter):
         #   for the .. figure:: tags
 
         outputprefix=os.path.join(self.c.t.dir,self.targfullname)
-
+        #print(self.c.execplot)
         # Execute the code in the script
-        (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
-                                self.c.g.execplot)
+        if self.c.execplot == 3:
+            outbuf = ()
+            nfigs = 0
+        else:
+            (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
+                                    outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
+                                    self.c.g.execplot)
 
         newbody=[]
         # Go through the code and fill in the correct filenames
@@ -1638,9 +1642,13 @@ class ExamplePrinter(ExecPrinter):
         outputprefix=os.path.join(self.c.t.dir,self.fullname)
 
         # Execute the code in the script
-        (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
-                                outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
-                                self.c.g.execplot)
+        if self.execplot == 3:
+            outbuf = []
+            nfigs = 0
+        else:
+            (outbuf,nfigs)=execplot(self.c.g.plotexecuter,self.codebuf.split('\n'),
+                                    outputprefix,self.c.t.imagetype,self.c.g.tmpdir,
+                                    self.c.g.execplot)
         if self.c.t.includeoutput:
             obuf.append('\\subsubsection*{Output}')
 
@@ -2329,11 +2337,10 @@ def print_matlab(conf,ifilename,ofilename):
 
 # This factory function creates function or script file objects
 # depending on whether the first word of the first line is 'function'
-def matfile_factory(conf,fname,targfname=''):
-
+def matfile_factory(conf,fname,do_execplot, targfname=''):
+    conf.g.execplot = do_execplot
     buf=safereadlines(os.path.join(conf.g.projectdir,fname+'.m'))
-
-    if buf[0].split()[0]=='function' and not '%RUNASSCRIPT' in buf[0]:
+    if buf[0].split()[0]=='function' and not '%RUNASSCRIPT' in buf[0] or do_execplot==3:
         return FunPrinter(conf,fname,targfname)
     else:
         return ExamplePrinter(conf,fname,targfname)
@@ -2345,7 +2352,7 @@ def find_indent(line):
     return ii
 
 def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
-    #print(do_execplot)
+
     target=targetname
     confdir=os.path.join(projectdir,'mat2doc')
 
@@ -2378,10 +2385,10 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     ignore_folder = os.path.join(projectdir,'mat2doc','nodocs')
     #ignore_folder = os.path.join(projectdir,'thirdparty')
     if os.path.exists(ignore_folder):
-        print(projectdir)
-        print(ignore_folder)
+        #print(projectdir)
+        #print(ignore_folder)
         nodocslist = build_ignoredocrelist(projectdir, ignore_folder)
-        print('after')
+        #print('after')
     else:
         nodocslist=[]
     conf.t.indexfiles=find_indexfiles(projectdir, nodocslist )
@@ -2407,7 +2414,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         lookupsubdir={}
 
         for fname in conf.t.indexfiles:
-            P=ContentsPrinter(conf,fname)
+            P=ContentsPrinter(conf,fname, do_execplot)
             # Create list of files with subdir appended
             subdir,fname=os.path.split(fname)
             #print(conf.g.ignorelist)
@@ -2478,7 +2485,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             if do_rebuild_file(os.path.join(conf.g.projectdir,fname+'.m'),
                                os.path.join(conf.t.dir,targindex+fileext),
                                rebuildmode):
-                P=ContentsPrinter(conf,fname,targindex)
+                P=ContentsPrinter(conf,fname,do_execplot,targindex)
                 P.write_the_file()
 
 
@@ -2492,14 +2499,16 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
 
             if do_rebuild_file(sourcefile, targetfile, rebuildmode):
                 print('Rebuilding '+conf.t.basetype+' '+fname)
-
-                P=matfile_factory(conf,fname,targfname)
+                conf.execplot = do_execplot
+                P=matfile_factory(conf,fname, targfname)
+                #print(conf.execplot)
                 P.write_the_file()
 
         # Post-stuff, copy the images directory
         if conf.t.basetype=='php' or conf.t.basetype=='html' or conf.t.basetype=='tex':
             originimages=os.path.join(confdir,'images')
             print(originimages)
+            print("HERE 2")
             if os.path.exists(originimages):
                 targetimages=os.path.join(conf.t.dir,'images')
                 rmrf(targetimages)
@@ -2624,7 +2633,7 @@ getattr(conf.g,'addonbase',conf.g.outputdir))),args.addon)
         idxfile=open(os.path.join(conf.t.dir,'INDEX'),'w')
         idxfile.write(conf.g.octtitle+'\n')
         for fname in conf.t.indexfiles:
-            P=ContentsPrinter(conf,fname)
+            P=ContentsPrinter(conf,fname, do_execplot)
             # Create list of files with subdir appended
             subdir,fname=os.path.split(fname)
 
