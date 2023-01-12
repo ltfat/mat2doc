@@ -287,7 +287,6 @@ def build_ignoredocrelist(projectdir, ignore_file):
 
     for root, dirs, files in os.walk(projectdir, topdown=False):
         for name in files:
-            print(name)
             if name.split('.')[-1] != 'm':
                 continue
             p = os.path.join(root, name)
@@ -297,6 +296,7 @@ def build_ignoredocrelist(projectdir, ignore_file):
                     ok = False
             if not ok:
                 s = os.path.relpath(os.path.join(root, name), projectdir)
+                print(s)
                 indexfiles.append(s)
 
     return indexfiles
@@ -632,6 +632,7 @@ class GlobalConf(ConfType):
         safe_mkdir(self.self.filesdir)
 
         s=os.path.join(self.confdir,'ignore')
+
         if os.path.exists(s):
             self.ignorelist=safereadlines(s)
         else:
@@ -992,6 +993,8 @@ class BasePrinter(object):
         # Search for a possible attribute definition
         attriblist=[x for x in buf if len(x)>0 and x[0]=='%' and 'MAT2DOC:' in x]
         attriblist=[x.split(':') for x in attriblist]
+        
+        self.flag = 1
 
         self.parse()
 
@@ -1196,7 +1199,12 @@ class ExecPrinter(BasePrinter):
                 outputprefix=os.path.join(self.c.t.dir,self.targfullname+'_'+repr(exec_n))
 
                 # Execute the code
-                (outbuf,nfigs)=execplot(self.c.g.plotexecuter,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
+                if args.no_execplot==3:
+                    outbuf = []
+                    nfigs = 0
+                else:
+                    (outbuf,nfigs)=execplot(self.c.g.plotexecuter,codebuf,outputprefix,self.c.t.imagetype,self.c.g.tmpdir,self.c.g.execplot)
+
 
                 # Append the result, if there is any
 
@@ -2337,7 +2345,7 @@ def find_indent(line):
     return ii
 
 def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
-
+    #print(do_execplot)
     target=targetname
     confdir=os.path.join(projectdir,'mat2doc')
 
@@ -2368,6 +2376,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
     conf.t.basetype=targetname
 
     ignore_folder = os.path.join(projectdir,'mat2doc','nodocs')
+    #ignore_folder = os.path.join(projectdir,'thirdparty')
     if os.path.exists(ignore_folder):
         print(projectdir)
         print(ignore_folder)
@@ -2401,8 +2410,9 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             P=ContentsPrinter(conf,fname)
             # Create list of files with subdir appended
             subdir,fname=os.path.split(fname)
-
+            #print(conf.g.ignorelist)
             for name in P.files:
+                #print(name)
                 if not name in conf.g.ignorelist:
                     allfiles.append(os.path.join(subdir,name))
                     lookupsubdir[name]= subdir if subdir else 'base'
@@ -2770,8 +2780,9 @@ parser.add_argument('--addon',help="Directory to add to the package. See the 'ad
 
 # Mutually exclusive : --execplot and --no-execplot
 group1 = parser.add_mutually_exclusive_group()
-group1.add_argument("--execplot", action="store_true", help='Process examples and demos')
-group1.add_argument("--no-execplot", action="store_true",help='Do not process examples or demos, but used cached files instead, if available')
+group1.add_argument("--execplot", dest='no_execplot', action="store_const", const=1, help='Process examples and demos')
+group1.add_argument("--no-execplot", dest='no_execplot', action="store_const", const=0, help='Do not process examples or demos, but used cached files instead, if available')
+group1.add_argument("--no-plot", dest='no_execplot', action="store_const", const=3, help='Do not start Matlab or Octave.')
 
 # Mutually excluse : --auto, --cached, --rebuild
 group2 = parser.add_mutually_exclusive_group()
@@ -2796,6 +2807,11 @@ parser.add_argument('--encoding',help="Character encoding to use for Utf-8 files
 
 args = parser.parse_args()
 
+if args.no_execplot==None:
+    args.no_execplot=1
+#print(args.no_execplot)
+#exit()
+
 rebuildmode=args.rebuildmode
 if rebuildmode==None:
     rebuildmode='auto'
@@ -2803,4 +2819,5 @@ if rebuildmode==None:
 # Locate the mat2doc configuration directory
 projectname,projectdir,confdir=findMat2docDir(args.filename)
 
-printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot,args)
+#printdoc(projectname,projectdir,args.target,rebuildmode,not args.no_execplot,args)
+printdoc(projectname,projectdir,args.target,rebuildmode,args.no_execplot,args)
