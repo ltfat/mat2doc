@@ -280,24 +280,48 @@ def find_indexfiles(projectdir, ignorelist):
 # Build ignore list for all files that should not be compiled just copied
 def build_ignoredocrelist(projectdir, ignore_file):
     ignoredirlist = safereadlines(ignore_file)
-
-    ignoredirlist = ['^{}/{}$'.format(projectdir, f.replace('*', '.*')) for f in ignoredirlist]
+    ignoredirlist.remove('')
+    #ignoredirlist = ['^{}/{}$'.format(projectdir, f.replace('*', '.*')) for f in ignoredirlist]
 
     indexfiles = []
+    excludefolders = []
+    folderlist = os.listdir(projectdir)
+    for dirs in folderlist:
+        #print('DIR',os.path.relpath(os.listdir(projectdir), projectdir))
+        if dirs not in ignoredirlist:
+            excludefolders.append(dirs)
+        excludefolders.append(projectdir)
 
-    for root, dirs, files in os.walk(projectdir, topdown=False):
+    exclude = set(excludefolders)
+    #print(excludefolders)
+    for root, dirs, files in os.walk(projectdir, topdown=True):
+        dirs[:] = [d for d in dirs if d not in exclude]
+        if '' in dirs:
+            dirs.remove('')
+        #print(dirs)
         for name in files:
             if name.split('.')[-1] != 'm':
                 continue
             p = os.path.join(root, name)
-            ok = True
-            for r in ignoredirlist:
-                if re.match(r, p):
-                    ok = False
-            if not ok:
-                s = os.path.relpath(os.path.join(root, name), projectdir)
-                print(s)
-                indexfiles.append(s)
+            s = os.path.relpath(os.path.join(root, name), projectdir)
+            indexfiles.append(s)
+        #print(indexfiles)
+    
+    #for root, dirs, files in os.walk(projectdir, topdown=False):
+    #    #print(dirs)
+    #    for name in files:
+    #        if name.split('.')[-1] != 'm':
+    #            continue
+    #        p = os.path.join(root, name)
+    #        ok = True
+    #        for r in ignoredirlist:
+    #            if re.match(r, p):
+    #                ok = False
+    #        if not ok:
+    #            s = os.path.relpath(os.path.join(root, name), projectdir)
+    #            #print(s)
+    #            indexfiles.append(s)
+    #        print(dirs)
 
     return indexfiles
 
@@ -2098,227 +2122,230 @@ def print_matlab(conf,ifilename,ofilename):
         seealso=[]
 
     while len(line)>0 and line[0]=='%' and len(ibuf)>0:
-        if  'References:' in line:
-            (dummy,sep,s) = line.partition(':')
-            reflist = s.strip().split()
-
-            if len(reflist)==0:
-                print('   WARNING: Empty list of references.')
-            else:
-
-                buf=conf.t.bibexecuter(reflist)
-
-                obuf=''
-
-                # Skip lines containing hyperlinks
-                for rline in buf:
-                    if rline[:1]=='[':
-                        continue
-
-                    if rline[:6]=='</tr>':
-                        obuf+=rline+'\n'
-                        obuf+='</table><br><table><tr>\n'
-                        continue
-
-                    obuf+=rline+'\n'
-
-                # Write the clean HTML to a temporary file and process it using
-                ## This was missing
-                # This was missing
-                outname=os.path.join(conf.g.tmpdir,'lyxtmp')
-                safewrite(outname+'.html',obuf)
-
-                buf=conf.t.lynxexecuter(outname)
-
-                outbuf+='%   References:\n'
-                for rline in buf[0:]:
-                    outbuf+='%     '+rline+'\n'
-
-            line=ibuf.pop()
-
-            continue
-
-        # Figures in demos
-        if '.. figure::' in line:
-            # Pop the empty line
-            line_empty=ibuf.pop()
-            if len(line_empty[1:].strip())>0:
-                print('   Error: Figure definition must be followed by a single empty line.')
-                sys.exit()
-
-            heading=ibuf.pop()
-
-            if not find_indent(heading[1:])==6:
-                print("Error in %s:" % os.path.basename(ifilename))
-                print("   The headline after the .. figure:: definition must start with 6 spaces")
-                sys.exit()
-
-            if len(heading[1:].strip())==0:
-                print('Error: Figure definition must be followed by a single empty line.')
-                sys.exit()
-
-            outbuf+='%   Figure '+repr(nfig)+': '+heading[1:].strip()+'\n'
-            line=ibuf.pop()
-
-            if len(line[1:].strip())>0:
-                print('   Error: Figure definition must be followed by a single line header and an empty line.')
-                sys.exit()
-
-            nfig+=1
-
-            continue
-
-        # Just skip the image, and keep on skipping until we hit a
-        # blank line, and eat that also to avoid two consequitive empty lines
-        if '.. image::' in line:
-            while len(line[1:].strip())>0:
-                line=ibuf.pop()
-            line=ibuf.pop()
-            continue
-
-        # remove the display math sections. FIXME: This will not
-        # correctly handle display math in nested environments.
-        if '.. math::' in line:
-            line=ibuf.pop()
-
-            # Keep removing lines until we hit an empty line.
-            while len(line[1:].strip())>0:
-                line=ibuf.pop()
-
-            # Eat the empty line following the math formula to avoid consequitive empty lines
-            line=ibuf.pop()
-            continue
-
-        # Handle comments: No substitutions must be made in
-        # comments, so they are handled differently than the rest
-        # of the text
-        if line[1:].strip()[0:2]=='..':
-            idl=find_indent(line[1:])
-            # Remove the start of the comments
-            line=line.replace(' .. ','    ')
-            outbuf+=line+'\n'
-            line=ibuf.pop()
-            # While the line does not start at zero.
-            while not (len(line[1:].strip())>0 and find_indent(line[1:])==idl):
-                outbuf+=line+'\n'
-                line=ibuf.pop()
-
-            continue
-
-        if dooct:
-            if 'See also' in line:
-                (dummy,sep,s) = line.partition(':')
-                if not(sep==':'):
-                    userError('In function %s: See also line must contain a :' % out['name'])
-
-                seealso=[x.strip(',').lower() for x in s.split()]
-                while (len(ibuf)>0) and len(ibuf[-1][1:].strip())>0:
-                    line = ibuf.pop();
-                    seealso.extend([x.strip(',').lower() for x in line.split()])
-
-                line=ibuf.pop()
-
-                continue
-
-            # Just add the demos to the see also
-            if 'Demos:'==line[1:].strip()[0:6]:
-                (dummy,sep,s) = line.partition(':')
-                seealso.extend([x.strip(',').lower() for x in s.split()])
-
-                line=ibuf.pop()
-
-                continue
-
-
-
-        # Keep all other lines.
-        if len(line)>2:
-
-            # Remove inline formula markup
-            line=line.replace('$','')
-
-            # Math substitutions
-            line=line.replace('\ldots','...')
-            line=line.replace('\\times ','x')
-            line=line.replace('\leq','<=')
-            line=line.replace('\geq','>=')
-            line=line.replace('\cdot ','*')
-            line=line.replace('\pm ','+-')
-            line=line.replace('\mathbb','')
-            # Kill all remaining backslashes
-            line=line.replace('\\','')
-
-            # Remove hyperlink markup
-            line=line.replace('`<','')
-            line=line.replace('>`_','')
-
-            # This would be cool for Matlab
-            # <a href="matlab: help foo>extended_help">
-
-            # In the loops below, the line is modified in each
-            # iteration, so we don't use re.finditer
-
-            # Convert internal links to uppercase
-            while True:
-                p=re.search(' \|.*?\|',line)
-                if p:
-                    line=line[0:p.start(0)+1]+line[p.start(0)+2:p.end(0)-1].upper()+line[p.end(0):]
-
-                    # Enabling the line below would make nice links in Matlab, but it looks ugly in Octave
-                    #line=line[0:p.start(0)+1]+'<a href="matlab: help '+line[p.start(0)+2:p.end(0)-1]+'">'+line[p.start(0)+2:p.end(0)-1]+'</a>'+line[p.end(0):]
-                else:
-                    break
-
-            # Uppercase the function name appearing inside backticks, and remove them
-            while True:
-                p=re.search('`.*?`',line)
-                if p:
-                    line=line[0:p.start(0)]+line[p.start(0)+1:p.end(0)-1].replace(name,name.upper())+line[p.end(0):]
-                else:
-                    break
-
-
-            #line=line.replace('`','')
-
-            # Remove stars
-            line=line.replace(' *',' ')
-            line=line.replace('* ',' ')
-            line=line.replace('*,',',')
-            line=line.replace('*.','.')
-            line=line.replace('*\n','\n')
-
-
-            if line.find(':::')>0:
-                line=line.replace(':::',':')
-
-
-            # Convert remaining :: into :
-            line=line.replace('::',':')
-
-            outbuf+=line+'\n'
-        else:
-            outbuf+=line+'\n'
-
+        outbuf+=line+'\n'
         line=ibuf.pop()
+#         if  'References:' in line:
+#             (dummy,sep,s) = line.partition(':')
+#             reflist = s.strip().split()
+# 
+#             if len(reflist)==0:
+#                 print('   WARNING: Empty list of references.')
+#             else:
+#                 buf=conf.t.bibexecuter(reflist)
+# 
+#                 obuf=''
+# 
+#                 # Skip lines containing hyperlinks
+#                 for rline in buf:
+#                     if rline[:1]=='[':
+#                         continue
+# 
+#                     if rline[:6]=='</tr>':
+#                         obuf+=rline+'\n'
+#                         obuf+='</table><br><table><tr>\n'
+#                         continue
+# 
+#                     obuf+=rline+'\n'
+# 
+#                 # Write the clean HTML to a temporary file and process it using
+#                 ## This was missing
+#                 # This was missing
+#                 outname=os.path.join(conf.g.tmpdir,'lyxtmp')
+#                 safewrite(outname+'.html',obuf)
+# 
+#                 buf=conf.t.lynxexecuter(outname)
+# 
+#                 outbuf+='%   References:\n'
+#                 for rline in buf[0:]:
+#                     outbuf+='%     '+rline+'\n'
+# 
+#             line=ibuf.pop()
+# 
+#             continue
+# 
+#         # Figures in demos
+#         if '.. figure::' in line:
+#             # Pop the empty line
+#             line_empty=ibuf.pop()
+#             if len(line_empty[1:].strip())>0:
+#                 print('   Error: Figure definition must be followed by a single empty line.')
+#                 sys.exit()
+# 
+#             heading=ibuf.pop()
+# 
+#             if not find_indent(heading[1:])==6:
+#                 print("Error in %s:" % os.path.basename(ifilename))
+#                 print("   The headline after the .. figure:: definition must start with 6 spaces")
+#                 sys.exit()
+# 
+#             if len(heading[1:].strip())==0:
+#                 print('Error: Figure definition must be followed by a single empty line.')
+#                 sys.exit()
+# 
+#             outbuf+='%   Figure '+repr(nfig)+': '+heading[1:].strip()+'\n'
+#             line=ibuf.pop()
+# 
+#             if len(line[1:].strip())>0:
+#                 print('   Error: Figure definition must be followed by a single line header and an empty line.')
+#                 sys.exit()
+# 
+#             nfig+=1
+# 
+#             continue
+# 
+#         # Just skip the image, and keep on skipping until we hit a
+#         # blank line, and eat that also to avoid two consequitive empty lines
+#         if '.. image::' in line:
+#             while len(line[1:].strip())>0:
+#                 line=ibuf.pop()
+#             line=ibuf.pop()
+#             continue
+# 
+#         # remove the display math sections. FIXME: This will not
+#         # correctly handle display math in nested environments.
+#         if '.. math::' in line:
+#             line=ibuf.pop()
+# 
+#             # Keep removing lines until we hit an empty line.
+#             while len(line[1:].strip())>0:
+#                 line=ibuf.pop()
+# 
+#             # Eat the empty line following the math formula to avoid consequitive empty lines
+#             line=ibuf.pop()
+#             continue
+# 
+#         # Handle comments: No substitutions must be made in
+#         # comments, so they are handled differently than the rest
+#         # of the text
+#         if line[1:].strip()[0:2]=='..':
+#             idl=find_indent(line[1:])
+#             # Remove the start of the comments
+#             line=line.replace(' .. ','    ')
+#             outbuf+=line+'\n'
+#             line=ibuf.pop()
+#             # While the line does not start at zero.
+#             while not (len(line[1:].strip())>0 and find_indent(line[1:])==idl):
+#                 outbuf+=line+'\n'
+#                 line=ibuf.pop()
+# 
+#             continue
+# 
+#         if dooct:
+#             if 'See also' in line:
+#                 (dummy,sep,s) = line.partition(':')
+#                 if not(sep==':'):
+#                     userError('In function %s: See also line must contain a :' % out['name'])
+# 
+#                 seealso=[x.strip(',').lower() for x in s.split()]
+#                 while (len(ibuf)>0) and len(ibuf[-1][1:].strip())>0:
+#                     line = ibuf.pop();
+#                     seealso.extend([x.strip(',').lower() for x in line.split()])
+# 
+#                 line=ibuf.pop()
+# 
+#                 continue
+# 
+#             # Just add the demos to the see also
+#             if 'Demos:'==line[1:].strip()[0:6]:
+#                 (dummy,sep,s) = line.partition(':')
+#                 seealso.extend([x.strip(',').lower() for x in s.split()])
+# 
+#                 line=ibuf.pop()
+# 
+#                 continue
+# 
+# 
+# 
+#         # Keep all other lines.
+#         if len(line)>2:
+# 
+#             # Remove inline formula markup
+#             line=line.replace('$','')
+# 
+#             # Math substitutions
+#             line=line.replace('\ldots','...')
+#             line=line.replace('\\times ','x')
+#             line=line.replace('\leq','<=')
+#             line=line.replace('\geq','>=')
+#             line=line.replace('\cdot ','*')
+#             line=line.replace('\pm ','+-')
+#             line=line.replace('\mathbb','')
+#             # Kill all remaining backslashes
+#             line=line.replace('\\','')
+# 
+#             # Remove hyperlink markup
+#             line=line.replace('`<','')
+#             line=line.replace('>`_','')
+# 
+#             # This would be cool for Matlab
+#             # <a href="matlab: help foo>extended_help">
+# 
+#             # In the loops below, the line is modified in each
+#             # iteration, so we don't use re.finditer
+# 
+#             # Convert internal links to uppercase
+#             while True:
+#                 p=re.search(' \|.*?\|',line)
+#                 if p:
+#                     line=line[0:p.start(0)+1]+line[p.start(0)+2:p.end(0)-1].upper()+line[p.end(0):]
+# 
+#                     # Enabling the line below would make nice links in Matlab, but it looks ugly in Octave
+#                     #line=line[0:p.start(0)+1]+'<a href="matlab: help '+line[p.start(0)+2:p.end(0)-1]+'">'+line[p.start(0)+2:p.end(0)-1]+'</a>'+line[p.end(0):]
+#                 else:
+#                     break
+# 
+#             # Uppercase the function name appearing inside backticks, and remove them
+#             while True:
+#                 p=re.search('`.*?`',line)
+#                 if p:
+#                     line=line[0:p.start(0)]+line[p.start(0)+1:p.end(0)-1].replace(name,name.upper())+line[p.end(0):]
+#                 else:
+#                     break
+# 
+# 
+#             #line=line.replace('`','')
+# 
+#             # Remove stars
+#             line=line.replace(' *',' ')
+#             line=line.replace('* ',' ')
+#             line=line.replace('*,',',')
+#             line=line.replace('*.','.')
+#             line=line.replace('*\n','\n')
+# 
+# 
+#             if line.find(':::')>0:
+#                 line=line.replace(':::',':')
+# 
+# 
+#             # Convert remaining :: into :
+#             line=line.replace('::',':')
+# 
+#             outbuf+=line+'\n'
+#         else:
+#             outbuf+=line+'\n'
+# 
+#         line=ibuf.pop()
 
     # Append url for quick online help
     # Find the name of the file + the subdir in the package
     # Exclude the first slash in shortpath to not get a double slash, therefore the "+1"
-    shortpath=ifilename[len(conf.t.dir)+1:-2]
-    url=conf.t.urlbase+shortpath+conf.t.urlext
-    if dooct:
-        outbuf+="%@end verbatim\n"
-        outbuf+="%@strong{Url}: @url{"+url+"}\n"
-        if len(seealso)>0:
-            outbuf+="%@seealso{"+", ".join(seealso)+"}\n"
-        outbuf+="%@end deftypefn\n"
+#    shortpath=ifilename[len(conf.t.dir)+1:-2]
+#    url=conf.t.urlbase+shortpath+conf.t.urlext
+#     if dooct:
+#         outbuf+="%@end verbatim\n"
+#         outbuf+="%@strong{Url}: @url{"+url+"}\n"
+#         if len(seealso)>0:
+#             outbuf+="%@seealso{"+", ".join(seealso)+"}\n"
+#         outbuf+="%@end deftypefn\n"
+# 
+#     else:
+#         outbuf+='%\n'
+#         outbuf+='%   Url: '+url+'\n'
 
-    else:
-        outbuf+='%\n'
-        outbuf+='%   Url: '+url+'\n'
 
     # --- Append header
     # Append empty line to seperate header from help section
+    #outbuf+=line
     outbuf+='\n'
     outbuf+=conf.t.header
 
@@ -2388,7 +2415,7 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
         #print(projectdir)
         #print(ignore_folder)
         nodocslist = build_ignoredocrelist(projectdir, ignore_folder)
-        #print('after')
+        #print(nodocslist)
     else:
         nodocslist=[]
     conf.t.indexfiles=find_indexfiles(projectdir, nodocslist )
@@ -2419,7 +2446,6 @@ def printdoc(projectname,projectdir,targetname,rebuildmode,do_execplot,args):
             subdir,fname=os.path.split(fname)
             #print(conf.g.ignorelist)
             for name in P.files:
-                #print(name)
                 if not name in conf.g.ignorelist:
                     allfiles.append(os.path.join(subdir,name))
                     lookupsubdir[name]= subdir if subdir else 'base'
